@@ -20,7 +20,7 @@ import {
 } from '../lib/utils.js'
 import { buildOpenClawProviderConfig } from '../lib/onboard.js'
 import { resolveAutostartExecPath, resolveAutostartNodePath } from '../lib/autostart.js'
-import { getApiKey } from '../lib/config.js'
+import { getApiKey, getProviderPingIntervalMs } from '../lib/config.js'
 import { isQwenOauthAccessTokenValid, pollQwenOauthDeviceToken, resolveQwenCodeOauthAccessToken, startQwenOauthDeviceLogin } from '../lib/qwencodeAuth.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -40,6 +40,23 @@ function mockResult(overrides = {}) {
     ...overrides,
   }
 }
+
+describe('config helpers', () => {
+  it('resolves provider-specific ping intervals', () => {
+    const config = {
+      providers: {
+        nvidia: { pingIntervalMinutes: 5 },
+        qwencode: { pingIntervalMinutes: '10' },
+        openrouter: { pingIntervalMinutes: 0 }, // invalid
+      }
+    }
+
+    assert.equal(getProviderPingIntervalMs(config, 'nvidia'), 5 * 60_000)
+    assert.equal(getProviderPingIntervalMs(config, 'qwencode'), 10 * 60_000)
+    assert.equal(getProviderPingIntervalMs(config, 'openrouter'), 30 * 60_000) // default
+    assert.equal(getProviderPingIntervalMs(config, 'missing'), 30 * 60_000) // default
+  })
+})
 
 describe('sources data integrity', () => {
   it('includes Qwen Code provider', () => {
