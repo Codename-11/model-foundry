@@ -154,6 +154,17 @@ For `Qwen Code`, modelrelay supports both API keys and Qwen OAuth cached credent
 If OAuth credentials exist, modelrelay will use them and refresh access tokens automatically.
 You can also start OAuth directly from the Web UI Providers tab using `Login with Qwen Code`.
 
+## Troubleshooting
+
+### Clicking the update button or running `modelrelay` won't perform an update
+
+To trigger a manual npm update and restart the service, run:
+
+```bash
+npm i -g modelrelay@latest
+modelrelay autostart --start
+```
+
 ---
 
 ⭐️ If you find modelrelay useful, please consider [starring the repo](https://github.com/ellipticmarketing/modelrelay)!
