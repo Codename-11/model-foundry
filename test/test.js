@@ -13,6 +13,7 @@ import {
   sortResults,
   findBestModel,
   rankModelsForRouting,
+  filterModelsByRequested,
   isRetryableProxyStatus,
   parseArgs,
   parseOpenRouterKeyRateLimit,
@@ -24,6 +25,7 @@ import { exportConfigToken, getApiKey, getProviderPingIntervalMs, importConfigTo
 import { buildNpmInstallInvocation, buildWindowsPostUpdateRestartCommand, getForcedUpdateVersion, getLocalUpdateTarballPath, getLocalUpdateVersion, isRunningFromSource, shouldStopAutostartBeforeUpdate } from '../lib/update.js'
 import { isQwenOauthAccessTokenValid, pollQwenOauthDeviceToken, resolveQwenCodeOauthAccessToken, startQwenOauthDeviceLogin } from '../lib/qwencodeAuth.js'
 import { toOpenRouterModelMeta, toKiloCodeModelMeta } from '../lib/server.js'
+import { canonicalizeModelId } from '../sources.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -756,6 +758,43 @@ describe('onboard integrations', () => {
     assert.equal(provider.api, 'openai-completions')
     assert.equal(provider.apiKey, 'no-key')
     assert.deepEqual(provider.models, [{ id: 'auto-fastest', name: 'Auto Fastest' }])
+  })
+})
+
+describe('model grouping and filtering', () => {
+  const results = [
+    mockResult({ modelId: 'nvidia/glm4.7', label: 'GLM 4.7 (NVIDIA)' }),
+    mockResult({ modelId: 'openrouter/glm4.7:free', label: 'GLM 4.7 (OpenRouter)' }),
+    mockResult({ modelId: 'meta/llama3.3-70b', label: 'Llama 3.3 (Meta)' }),
+  ]
+
+  it('filters by exact model ID', () => {
+    const filtered = filterModelsByRequested(results, 'nvidia/glm4.7', canonicalizeModelId)
+    assert.equal(filtered.length, 1)
+    assert.equal(filtered[0].modelId, 'nvidia/glm4.7')
+  })
+
+  it('filters by canonical base ID (removes :free)', () => {
+    const filtered = filterModelsByRequested(results, 'openrouter/glm4.7', canonicalizeModelId)
+    assert.equal(filtered.length, 1)
+    assert.equal(filtered[0].modelId, 'openrouter/glm4.7:free')
+  })
+
+  it('filters by unprefixed canonical name (grouping)', () => {
+    const filtered = filterModelsByRequested(results, 'glm4.7', canonicalizeModelId)
+    assert.equal(filtered.length, 2)
+    assert.ok(filtered.some(r => r.modelId === 'nvidia/glm4.7'))
+    assert.ok(filtered.some(r => r.modelId === 'openrouter/glm4.7:free'))
+  })
+
+  it('falls back to all models if no match found', () => {
+    const filtered = filterModelsByRequested(results, 'non-existent-model', canonicalizeModelId)
+    assert.equal(filtered.length, 3)
+  })
+
+  it('returns all models for auto-fastest', () => {
+    const filtered = filterModelsByRequested(results, 'auto-fastest', canonicalizeModelId)
+    assert.equal(filtered.length, 3)
   })
 })
 
