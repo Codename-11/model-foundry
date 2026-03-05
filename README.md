@@ -49,6 +49,12 @@ Router endpoint:
 - Model: `auto-fastest` (router picks actual backend)
 
 ## 🚀 Install via Docker
+
+### Prerequisites
+- Docker Engine
+- Docker Compose (the `docker compose` command)
+
+
 ```bash
 mkdir modelrelay
 
@@ -57,7 +63,7 @@ cd modelrelay
 wget -O Dockerfile https://raw.githubusercontent.com/ellipticmarketing/modelrelay/master/Dockerfile
 wget -O docker-compose.yml https://raw.githubusercontent.com/ellipticmarketing/modelrelay/master/docker-compose.yml
 
-docker compose up
+docker compose up -d --build
 ```
 
 
