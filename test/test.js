@@ -22,7 +22,7 @@ import {
 } from '../lib/utils.js'
 import { buildOpenClawProviderConfig } from '../lib/onboard.js'
 import { resolveAutostartExecPath, resolveAutostartNodePath } from '../lib/autostart.js'
-import { exportConfigToken, getApiKey, getProviderPingIntervalMs, importConfigToken } from '../lib/config.js'
+import { exportConfigToken, getApiKey, getProviderBaseUrl, getProviderModelId, getProviderPingIntervalMs, importConfigToken } from '../lib/config.js'
 import { buildNpmInstallInvocation, buildWindowsPostUpdateRestartCommand, getForcedUpdateVersion, getLocalUpdateTarballPath, getLocalUpdateVersion, isRunningFromSource, shouldStopAutostartBeforeUpdate } from '../lib/update.js'
 import { isQwenOauthAccessTokenValid, pollQwenOauthDeviceToken, resolveQwenCodeOauthAccessToken, startQwenOauthDeviceLogin } from '../lib/qwencodeAuth.js'
 import { toOpenRouterModelMeta, toKiloCodeModelMeta } from '../lib/server.js'
@@ -119,6 +119,12 @@ describe('sources data integrity', () => {
     assert.ok(sources.qwencode.models.length > 0)
   })
 
+  it('includes OpenAI-compatible provider', () => {
+    assert.ok(sources['openai-compatible'])
+    assert.equal(sources['openai-compatible'].name, 'OpenAI-Compatible')
+    assert.ok(Array.isArray(sources['openai-compatible'].models))
+  })
+
   it('has expected provider structure', () => {
     for (const [providerKey, provider] of Object.entries(sources)) {
       assert.equal(typeof providerKey, 'string')
@@ -203,6 +209,44 @@ describe('provider api key resolution', () => {
     } finally {
       if (original == null) delete process.env.KILOCODE_API_KEY
       else process.env.KILOCODE_API_KEY = original
+    }
+  })
+
+  it('supports OpenAI-compatible provider env vars for key, base URL, and model', () => {
+    const originalKey = process.env.OPENAI_COMPATIBLE_API_KEY
+    const originalBaseUrl = process.env.OPENAI_COMPATIBLE_BASE_URL
+    const originalModel = process.env.OPENAI_COMPATIBLE_MODEL
+
+    try {
+      delete process.env.OPENAI_COMPATIBLE_API_KEY
+      delete process.env.OPENAI_COMPATIBLE_BASE_URL
+      delete process.env.OPENAI_COMPATIBLE_MODEL
+
+      const config = {
+        apiKeys: { 'openai-compatible': 'config-key' },
+        providers: { 'openai-compatible': { baseUrl: 'https://example.test/v1', modelId: 'foo/bar' } },
+      }
+
+      assert.equal(getApiKey(config, 'openai-compatible'), 'config-key')
+      assert.equal(getProviderBaseUrl(config, 'openai-compatible'), 'https://example.test/v1')
+      assert.equal(getProviderModelId(config, 'openai-compatible'), 'foo/bar')
+
+      process.env.OPENAI_COMPATIBLE_API_KEY = 'env-key'
+      process.env.OPENAI_COMPATIBLE_BASE_URL = 'https://env.example/v1'
+      process.env.OPENAI_COMPATIBLE_MODEL = 'env/model'
+
+      assert.equal(getApiKey(config, 'openai-compatible'), 'env-key')
+      assert.equal(getProviderBaseUrl(config, 'openai-compatible'), 'https://env.example/v1')
+      assert.equal(getProviderModelId(config, 'openai-compatible'), 'env/model')
+    } finally {
+      if (originalKey == null) delete process.env.OPENAI_COMPATIBLE_API_KEY
+      else process.env.OPENAI_COMPATIBLE_API_KEY = originalKey
+
+      if (originalBaseUrl == null) delete process.env.OPENAI_COMPATIBLE_BASE_URL
+      else process.env.OPENAI_COMPATIBLE_BASE_URL = originalBaseUrl
+
+      if (originalModel == null) delete process.env.OPENAI_COMPATIBLE_MODEL
+      else process.env.OPENAI_COMPATIBLE_MODEL = originalModel
     }
   })
 })

@@ -99,6 +99,11 @@ export const sources = {
       ["glm-4.6", "GLM 4.6", "128k"]
     ]
   },
+  "openai-compatible": {
+    "name": "OpenAI-Compatible",
+    "url": "",
+    "models": []
+  },
   "openrouter": {
     "name": "OpenRouter",
     "url": "https://openrouter.ai/api/v1/chat/completions",

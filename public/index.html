@@ -2827,6 +2827,16 @@
               </div>`;
           }
 
+          const openAiCompatibleFieldsHtml = p.key === 'openai-compatible' ? `
+            <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+              <input type="text" id="base-url-${p.key}" value="${escapeHtml(p.baseUrl || '')}" placeholder="https://your-endpoint.example/v1" style="flex:1;" onblur="updateProviderBaseUrl('${p.key}')">
+            </div>
+            <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
+              <input type="text" id="model-id-${p.key}" value="${escapeHtml(p.modelId || '')}" placeholder="upstream-model-id" style="flex:1;" onblur="updateProviderModelId('${p.key}')">
+            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Set the upstream base URL and exact model ID for this provider.</div>
+          ` : '';
+
           const qwenAuthActionsHtml = p.key === 'qwencode' ? `
             <div style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <button onclick="startQwenOAuthLogin()" style="border:1px solid var(--border); background:#fff; cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Login with Qwen Code</button>
@@ -2870,6 +2880,7 @@
               <span style="font-size:0.75rem; color:var(--text-muted);">(default: 30)</span>
             </div>
             ${optionalBearerAuthHtml}
+            ${openAiCompatibleFieldsHtml}
             ${qwenAuthActionsHtml}
             ${providerErrorHtml}
             ${rateLimitHtml}
@@ -2899,6 +2910,28 @@
       });
       input.value = '';
       loadSettings();
+    }
+
+    async function updateProviderBaseUrl(key) {
+      const input = document.getElementById(`base-url-${key}`);
+      const baseUrl = input ? input.value.trim() : '';
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerKey: key, baseUrl })
+      });
+      await fetchData();
+    }
+
+    async function updateProviderModelId(key) {
+      const input = document.getElementById(`model-id-${key}`);
+      const modelId = input ? input.value.trim() : '';
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerKey: key, modelId })
+      });
+      await fetchData();
     }
 
     async function updateProviderPingInterval(key) {
@@ -3536,3 +3569,4 @@
 </body>
 
 </html>
+
