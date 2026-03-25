@@ -42,6 +42,7 @@
   "files": [
     "bin/",
     "lib/",
+    "dist/",
     "public/",
     "sources.js",
     "scores.js",
@@ -50,6 +51,11 @@
   ],
   "scripts": {
     "start": "node bin/modelrelay.js",
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "node bin/modelrelay.js",
+    "dev:client": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "node --test test/test.js"
   },
   "dependencies": {
@@ -58,5 +64,9 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "vite": "^7.1.5"
   }
 }

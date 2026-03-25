@@ -123,9 +123,36 @@ Supported API key env vars include:
 
 ## Development
 
+Install deps:
+
 ```bash
-pnpm test
+npm install
 ```
+
+Run the backend and Vite frontend together:
+
+```bash
+npm run dev
+```
+
+That gives you:
+
+- Vite frontend: `http://localhost:5173/`
+- Router/backend API: `http://127.0.0.1:7352/`
+
+Build the production frontend bundle:
+
+```bash
+npm run build
+```
+
+Run tests:
+
+```bash
+npm test
+```
+
+Production/server mode serves the built `dist/` app automatically when it exists.
 
 ## Community
 

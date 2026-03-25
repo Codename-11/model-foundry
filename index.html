@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ModelFoundry</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+</head>
+
+<body>
+<div id="update-overlay">
+    <div class="update-spinner"></div>
+    <h2 style="margin: 0 0 10px;">Updating ModelFoundry</h2>
+    <p id="update-status-text" style="color: var(--text-muted); margin-bottom: 20px;">Downloading and installing update...</p>
+    <div class="progress-container">
+      <div id="update-progress-bar" class="progress-bar"></div>
+    </div>
+    <p id="update-percent-text" style="font-weight: 700; font-size: 1.25rem;">1%</p>
+  </div>
+
+  <div class="drawer-overlay" id="overlay" onclick="closeDrawer()"></div>
+
+  <div class="container">
+    <div class="dashboard-header">
+      <div>
+        <p class="dashboard-eyebrow">Router Control Center</p>
+        <h1 class="dashboard-heading">Dashboard</h1>
+        <p class="dashboard-subtitle">Live model telemetry, provider health, and routing controls in one place.
+        </p>
+        <p style="margin: 8px 0 0; color: var(--text-muted); font-size: 0.78rem; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <span>Version <span id="dashboard-version">Loading...</span></span>
+          <span id="update-pill" style="display:none;"></span>
+        </p>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <svg class="kpi-bg-svg" id="bg-current-svg" preserveAspectRatio="xMidYMid slice"></svg>
+        <div class="kpi-content">
+          <div class="kpi-label">
+            Current Model
+            <svg class="signal-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+          </div>
+          <div class="kpi-value" id="kpi-best">Calculating...</div>
+          <div style="margin-top:6px; min-height:20px;">
+            <span class="pin-badge" id="pin-badge" style="display:none; cursor:pointer;" onclick="pinModel('')"
+              title="Click to unpin">📌 Pinned ×</span>
+          </div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <svg class="kpi-bg-svg" id="bg-models-svg" preserveAspectRatio="xMidYMid slice"></svg>
+        <div class="kpi-content">
+          <div class="kpi-label">
+            Models Online
+            <svg class="signal-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+          </div>
+          <div class="kpi-value" id="kpi-active">0</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <svg class="kpi-bg-svg" id="bg-providers-svg" preserveAspectRatio="xMidYMid slice"></svg>
+        <div class="kpi-content">
+          <div class="kpi-label">
+            Providers Online
+            <svg class="signal-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+          </div>
+          <div class="kpi-value" id="kpi-providers">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" id="tab-models" onclick="switchTab('models')">Live Telemetry</div>
+      <div class="tab" id="tab-chat" onclick="switchTab('chat')">Chat</div>
+      <div class="tab" id="tab-logs" onclick="switchTab('logs')">Request Logs</div>
+      <div class="tab" id="tab-settings" onclick="switchTab('settings')">Settings</div>
+      <div class="tab" id="tab-setup" onclick="switchTab('setup')">Setup Instructions</div>
+    </div>
+
+    <div id="models-view">
+      <div class="table-container">
+        <div class="table-header">
+          <div class="table-title">Models</div>
+          <div class="search-bar">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input type="text" class="search-input" id="search-input"
+              placeholder="Search models, providers, or tiers..." oninput="handleSearch()">
+          </div>
+          <div style="display:flex; align-items:center; gap:20px; flex-shrink: 0;">
+            <button onclick="toggleFilterBar()"
+              style="display:flex; align-items:center; gap:6px; border:1px solid var(--border); background:white; cursor:pointer; font-size:0.8rem; color:var(--text); padding:6px 12px; border-radius:6px; transition:all 0.15s; font-weight:500;"
+              onmouseover="this.style.background='#f3f2f1'" onmouseout="this.style.background='white'">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+              </svg>
+              Filters
+            </button>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div id="hover-pause-badge"
+                style="display:none; background:var(--warning); color:#92400e; padding:4px 8px; border-radius:6px; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; align-items:center; gap:4px;">
+                ⏸ Paused on hover</div>
+              <span style="font-size:0.8rem; color:var(--text-muted); cursor:pointer; user-select:none;"
+                onclick="document.getElementById('live-sort-toggle').click()">Live Sort</span>
+              <label class="switch">
+                <input type="checkbox" id="live-sort-toggle" checked onchange="render(true)">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <button id="sort-reset-btn" onclick="resetSort()"
+              style="display:none; border:none; background:none; cursor:pointer; font-size:0.8rem; color:var(--text-muted); padding:4px 8px; border-radius:6px; white-space:nowrap; transition:all 0.15s;"
+              onmouseover="this.style.background='#f3f2f1';this.style.color='var(--text)'"
+              onmouseout="this.style.background='none';this.style.color='var(--text-muted)'">&#x2715; Reset
+              sort</button>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+
+
+          <div class="filter-group">
+            <div class="filter-header">
+              <span class="filter-label">Provider</span>
+              <span class="filter-shortcut" onclick="toggleAll('filter-provider-group')">(All/None)</span>
+            </div>
+            <div class="checkbox-group" id="filter-provider-group">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <div class="filter-header">
+              <span class="filter-label">Ping</span>
+              <span class="filter-shortcut" onclick="toggleAll('filter-ping-group')">(All/None)</span>
+            </div>
+            <div class="checkbox-group" id="filter-ping-group">
+              <label class="cb-label"><input type="checkbox" value="fast" checked onchange="render(true)"> Fast
+                (&lt;400ms)</label>
+              <label class="cb-label"><input type="checkbox" value="medium" checked onchange="render(true)"> Medium
+                (400-1199ms)</label>
+              <label class="cb-label"><input type="checkbox" value="slow" checked onchange="render(true)"> Slow
+                (&ge;1200ms)</label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <div class="filter-header">
+              <span class="filter-label">Availability</span>
+              <span class="filter-shortcut" onclick="toggleAll('filter-avail-group')">(All/None)</span>
+            </div>
+            <div class="checkbox-group" id="filter-avail-group">
+              <label class="cb-label"><input type="checkbox" value="excellent" checked onchange="render(true)">
+                Excellent (&ge;95%)</label>
+              <label class="cb-label"><input type="checkbox" value="good" checked onchange="render(true)"> Good
+                (85-94%)</label>
+              <label class="cb-label"><input type="checkbox" value="poor" checked onchange="render(true)"> Poor
+                (&lt;85%)</label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <div class="filter-header">
+              <span class="filter-label">Status</span>
+              <span class="filter-shortcut" onclick="toggleAll('filter-status-group')">(All/None)</span>
+            </div>
+            <div class="checkbox-group" id="filter-status-group">
+              <label class="cb-label"><input type="checkbox" value="up" checked onchange="render(true)"> Up</label>
+              <label class="cb-label"><input type="checkbox" value="down" checked onchange="render(true)"> Down</label>
+              <label class="cb-label"><input type="checkbox" value="disabled" checked onchange="render(true)">
+                Disabled</label>
+              <label class="cb-label"><input type="checkbox" value="excluded" checked onchange="render(true)">
+                Excluded</label>
+            </div>
+          </div>
+        </div>
+
+        <table onmouseenter="window.isTableHovered=true; document.getElementById('hover-pause-badge').style.display='flex';"
+          onmouseleave="window.isTableHovered=false; document.getElementById('hover-pause-badge').style.display='none';">
+          <thead>
+            <tr>
+              <th width="40"></th>
+              <th class="sortable" onclick="setSort('model')" id="th-model">Model <i class="sort-arrow"
+                  id="arrow-model">↕</i></th>
+              <th class="sortable" width="80" onclick="setSort('qos')" id="th-qos">QoS <i class="sort-arrow"
+                  id="arrow-qos">↕</i></th>
+              <th class="sortable" width="80" onclick="setSort('intell')" id="th-intell">SWE% <i class="sort-arrow"
+                  id="arrow-intell">↕</i></th>
+              <th class="sortable text-right" width="120" onclick="setSort('ping')" id="th-ping">Ping <i
+                  class="sort-arrow" id="arrow-ping">↕</i></th>
+              <th class="sortable text-right" width="150" onclick="setSort('availability')" id="th-availability">
+                Availability <i class="sort-arrow" id="arrow-availability">↕</i></th>
+              <th class="sortable" width="100" onclick="setSort('status')" id="th-status">Status <i class="sort-arrow"
+                  id="arrow-status">↕</i></th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="settings-view" style="display: none;">
+      <h2 style="margin-top: 0; font-size: 1.25rem;">Settings</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.25rem; font-size: 0.875rem;">Manage optional router update behavior and provider credentials.</p>
+      <div id="autoupdate-container" class="provider-section">
+        <!-- Auto-update settings generated here -->
+      </div>
+      <h3 style="margin: 2rem 0 0.25rem; font-size: 1rem;">Pinning</h3>
+      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Choose whether pinning locks one exact provider model or the whole canonical model family across providers.</p>
+      <div id="pinning-settings-container" class="provider-section">
+        <!-- Pinning settings generated here -->
+      </div>
+      <h3 style="margin: 0 0 0.25rem; font-size: 1rem;">Ping Filtering Exceptions</h3>
+      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Exclude models from pinging and routing based on criteria.</p>
+      <div id="filter-rules-container">
+        <!-- Filter rules UI generated here -->
+      </div>
+      <h3 style="margin: 2rem 0 0.25rem; font-size: 1rem;">Providers</h3>
+      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Configure API keys to enable models from different providers.</p>
+      <div id="providers-container" class="autoupdate-panel">
+        <!-- Settings generated here -->
+      </div>
+      <h3 style="margin: 2rem 0 0.25rem; font-size: 1rem;">Configuration Transfer</h3>
+      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Export/import all settings (including API keys) as a single encoded token for copy/paste migration.</p>
+      <div id="config-transfer-container">
+        <div class="autoupdate-panel">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+            <button class="btn" style="padding:8px 14px;" onclick="exportConfigTokenToBox()">Export</button>
+            <button class="btn" style="padding:8px 14px;" onclick="copyConfigTokenFromBox()">Copy</button>
+            <button class="btn" style="padding:8px 14px; background:#ecfdf5; border-color:#a7f3d0; color:#065f46;" onclick="importConfigTokenFromBox()">Import</button>
+          </div>
+          <textarea id="config-transfer-payload" spellcheck="false" placeholder="Paste exported config token here..." style="width:100%; min-height:95px; box-sizing:border-box; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.78rem; line-height:1.4; resize:vertical; background:#fff;"></textarea>
+          <div id="config-transfer-status" class="autoupdate-save-status" style="margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="logs-view" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div>
+          <h2 style="margin: 0; font-size: 1.25rem;">Recent Requests</h2>
+          <p style="color: var(--text-muted); margin: 4px 0 0; font-size: 0.875rem;">Last 50 requests proxied through
+            the router.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+          <div class="logs-mode-toggle" role="tablist" aria-label="Logs view mode">
+            <button id="logs-mode-cards" class="logs-mode-btn" onclick="setLogsViewMode('cards')" role="tab"
+              aria-selected="false">Request Cards</button>
+            <button id="logs-mode-history" class="logs-mode-btn active" onclick="setLogsViewMode('history')" role="tab"
+              aria-selected="true">Message History</button>
+          </div>
+          <button id="logs-pause-toggle" onclick="toggleLogsAutoRefresh()" class="btn"
+            style="background: white; color: var(--text); border: 1px solid var(--border);">Pause Live Updates</button>
+          <button onclick="loadLogs(true)" class="btn"
+            style="background: white; color: var(--text); border: 1px solid var(--border);">Refresh Logs</button>
+        </div>
+      </div>
+      <div id="logs-container" style="display: flex; flex-direction: column; gap: 16px;">
+        <!-- Logs generated here -->
+      </div>
+    </div>
+
+    <div id="chat-view" style="display: none;">
+      <div class="chat-layout">
+        <div class="chat-toolbar">
+          <div>
+            <h2 style="margin: 0; font-size: 1.25rem;">Chat</h2>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <label for="chat-model-select" style="font-size:0.76rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">Model</label>
+            <select id="chat-model-select" class="chat-model-select" onchange="onChatModelChange()">
+              <option value="auto-fastest">Auto (Fastest Available)</option>
+            </select>
+            <button id="chat-clear-btn" class="btn" style="background: white; color: var(--text); border: 1px solid var(--border);" onclick="clearChat()">Clear Chat</button>
+          </div>
+        </div>
+        <div id="chat-transcript" class="chat-transcript">
+          <div class="chat-empty">
+            Start a conversation. Press Enter to send and Shift+Enter for a newline.
+          </div>
+        </div>
+        <div id="chat-typing-indicator" class="chat-typing" aria-live="polite">
+          <span>Assistant is thinking</span>
+          <span class="chat-typing-dot"></span>
+          <span class="chat-typing-dot"></span>
+          <span class="chat-typing-dot"></span>
+        </div>
+        <div class="chat-composer">
+          <textarea id="chat-input" class="chat-input" placeholder="Type your message..." onkeydown="handleChatInputKeydown(event)"></textarea>
+          <div class="chat-actions">
+            <div id="chat-status" class="chat-status"></div>
+            <button id="chat-send-btn" class="btn chat-send-btn" onclick="sendChatMessage()">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="setup-view" style="display: none;">
+      <h2 style="margin-top: 0; font-size: 1.25rem;">Setup Instructions</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.875rem;">Configure OpenClaw and OpenCode
+        (Opencode) to use this optional router/dashboard layer.</p>
+
+      <div class="setup-grid">
+        <div class="setup-card">
+          <h3>OpenClaw</h3>
+
+          <div class="setup-method">
+            <p class="setup-method-title">Automatic</p>
+            <ol class="setup-steps">
+              <li>Run <code>model-foundry onboard</code> (or <code>modelrelay onboard</code> for legacy compatibility).</li>
+              <li>When asked <code>Auto-configure OpenClaw now? [Y/n]</code>, answer <code>Y</code>.</li>
+              <li>Start the router with <code>model-foundry</code> (or <code>modelrelay</code> for legacy compatibility).</li>
+            </ol>
+          </div>
+
+          <div class="setup-method">
+            <p class="setup-method-title">Manual</p>
+            <div style="font-size:0.83rem; color:var(--text-muted);">Merge this into
+              <code>~/.openclaw/openclaw.json</code>:
+            </div>
+            <pre class="setup-snippet">{
+  "models": {
+    "providers": {
+      "modelfoundry": {
+        "baseUrl": "http://127.0.0.1:7352/v1",
+        "api": "openai-completions",
+        "apiKey": "no-key",
+        "models": [
+          { "id": "auto-fastest", "name": "Auto Fastest" }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "openai/gpt-5.4"
+      },
+      "models": {
+        "modelfoundry/auto-fastest": {}
+      }
+    }
+  }
+}</pre>
+          </div>
+        </div>
+
+        <div class="setup-card">
+          <h3>OpenCode (Opencode)</h3>
+
+          <div class="setup-method">
+            <p class="setup-method-title">Automatic</p>
+            <ol class="setup-steps">
+              <li>Run <code>model-foundry onboard</code> (or <code>modelrelay onboard</code> for legacy compatibility).</li>
+              <li>When asked <code>Auto-configure OpenCode now? [Y/n]</code>, answer <code>Y</code>.</li>
+              <li>Start the router with <code>model-foundry</code> (or <code>modelrelay</code> for legacy compatibility).</li>
+            </ol>
+          </div>
+
+          <div class="setup-method">
+            <p class="setup-method-title">Manual</p>
+            <div style="font-size:0.83rem; color:var(--text-muted);">Put this in
+              <code>~/.config/opencode/opencode.json</code>:
+            </div>
+            <pre class="setup-snippet">{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "router": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "modelfoundry",
+      "options": {
+        "baseURL": "http://127.0.0.1:7352/v1",
+        "apiKey": "dummy-key"
+      },
+      "models": {
+        "auto-fastest": {
+          "name": "Auto Fastest"
+        }
+      }
+    }
+  },
+  "model": "router/auto-fastest"
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="drawer">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
+      <h2 id="drawer-title" style="margin: 0; font-size: 1.25rem;">Model Details</h2>
+      <button onclick="closeDrawer()"
+        style="border: none; background: #f3f2f1; cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">&times;</button>
+    </div>
+    <div id="drawer-content"></div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
