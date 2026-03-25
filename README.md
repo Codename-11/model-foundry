@@ -85,7 +85,7 @@ If you want manual setup, put this in `~/.config/opencode/opencode.json`:
   "provider": {
     "router": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "ModelFoundry",
+      "name": "modelfoundry",
       "options": {
         "baseURL": "http://127.0.0.1:7352/v1",
         "apiKey": "dummy-key"
@@ -209,7 +209,7 @@ Example:
 
 ## Config
 
-- Router config file: `~/.modelrelay.json` (current compatibility path; rename only if you intentionally update the runtime code)
+- Router config file: `~/.model-foundry.json` (canonical). A compatibility mirror is also written to `~/.modelrelay.json` for legacy installs/scripts.
 - API key env overrides:
   - `NVIDIA_API_KEY`
   - `GROQ_API_KEY`
@@ -232,7 +232,7 @@ You can also start OAuth directly from the Web UI Providers tab using `Login wit
 - In the Web UI, open `Settings` -> `Configuration Transfer` to export/copy/import a token.
 - The token includes your full config (including API keys, provider toggles, pinning mode, bans, filter rules, and auto-update settings).
 - Treat tokens as secrets. Anyone with the token can import your keys/settings.
-- Alternative: copy the config file directly from `~/.modelrelay.json` to the other machine at the same path (`~/.modelrelay.json`).
+- Alternative: copy `~/.model-foundry.json` to the other machine. If you still have older tooling, `~/.modelrelay.json` is maintained as a compatibility mirror.
 
 ## Troubleshooting
 

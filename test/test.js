@@ -848,7 +848,7 @@ describe('update restart coordination', () => {
 
 describe('local update overrides', () => {
   it('detects local tarball updates and derives the version from the filename', () => {
-    const tarballPath = join(ROOT, 'modelrelay-9.8.7.tgz')
+    const tarballPath = join(ROOT, 'model-foundry-9.8.7.tgz')
     writeFileSync(tarballPath, 'placeholder', 'utf8')
 
     try {
@@ -890,7 +890,7 @@ describe('local update overrides', () => {
 
 describe('npm install invocation', () => {
   it('builds a shell-safe Windows npm command for local tarballs', () => {
-    const tarballPath = join(ROOT, 'modelrelay-1.8.4.tgz')
+    const tarballPath = join(ROOT, 'model-foundry-1.8.4.tgz')
     writeFileSync(tarballPath, 'placeholder', 'utf8')
 
     try {
@@ -908,8 +908,8 @@ describe('npm install invocation', () => {
 
 describe('post-update restart command', () => {
   it('restarts the autostart target only when autostart is configured', () => {
-    assert.equal(buildWindowsPostUpdateRestartCommand(true), 'timeout /t 2 /nobreak && modelrelay start --autostart')
-    assert.equal(buildWindowsPostUpdateRestartCommand(false), 'timeout /t 2 /nobreak && modelrelay')
+    assert.equal(buildWindowsPostUpdateRestartCommand(true), 'timeout /t 2 /nobreak && model-foundry start --autostart')
+    assert.equal(buildWindowsPostUpdateRestartCommand(false), 'timeout /t 2 /nobreak && model-foundry')
   })
 })
 
@@ -920,7 +920,7 @@ describe('autostart', () => {
   })
 
   it('falls back to command name when path is missing', () => {
-    assert.equal(resolveAutostartExecPath('/definitely/not/a/file/modelrelay'), 'modelrelay')
+    assert.equal(resolveAutostartExecPath('/definitely/not/a/file/modelrelay'), 'model-foundry')
   })
 
   it('resolves node executable path when available', () => {
@@ -1083,7 +1083,9 @@ describe('package and entrypoint sanity', () => {
     assert.ok(pkg.version)
     assert.match(pkg.version, /^\d+\.\d+\.\d+$/)
     assert.equal(pkg.type, 'module')
+    assert.ok(pkg.bin['model-foundry'])
     assert.ok(pkg.bin.modelrelay)
+    assert.ok(existsSync(join(ROOT, pkg.bin['model-foundry'])))
     assert.ok(existsSync(join(ROOT, pkg.bin.modelrelay)))
   })
 

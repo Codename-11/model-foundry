@@ -1,19 +1,19 @@
 {
-  "name": "modelrelay/modelrelay",
+  "name": "modelfoundry/model-foundry",
   "description": "OpenAI-compatible local router that benchmarks free coding models across providers and forwards requests to the best available model.",
   "type": "project",
   "license": "MIT",
-  "homepage": "https://github.com/modelrelay",
+  "homepage": "https://github.com/Codename-11/model-foundry",
   "keywords": [
-    "modelrelay",
+    "model-foundry",
     "llm",
     "router",
     "openai-compatible",
     "coding-models"
   ],
   "support": {
-    "issues": "https://github.com/modelrelay/issues",
-    "source": "https://github.com/modelrelay"
+    "issues": "https://github.com/Codename-11/model-foundry/issues",
+    "source": "https://github.com/Codename-11/model-foundry"
   },
   "bin": [
     "bin/modelrelay.js"

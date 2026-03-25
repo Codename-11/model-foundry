@@ -3,8 +3,8 @@ FROM node:24-alpine
 # Install dependencies
 RUN apk add --no-cache ca-certificates
 
-# Install modelrelay globally
-RUN npm install -g modelrelay
+# Install ModelFoundry globally
+RUN npm install -g model-foundry
 
 # Create a directory for the configuration
 WORKDIR /app
@@ -13,6 +13,6 @@ WORKDIR /app
 EXPOSE 7352
 
 # Entrypoint: handles commands passed to the container
-ENTRYPOINT ["modelrelay"]
+ENTRYPOINT ["model-foundry"]
 CMD ["start"]
 

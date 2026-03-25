@@ -13,21 +13,24 @@ import { runUpdateCommand } from '../lib/update.js'
 import chalk from 'chalk'
 
 function printHelp() {
-  console.log('modelrelay')
+  console.log('model-foundry')
   console.log('')
   console.log('Usage:')
-  console.log('  modelrelay [--port <port>] [--log] [--ban <model1,model2>]')
-  console.log('  modelrelay onboard [--port <port>]')
-  console.log('  modelrelay install --autostart')
-  console.log('  modelrelay start --autostart')
-  console.log('  modelrelay uninstall --autostart')
-  console.log('  modelrelay status --autostart')
-  console.log('  modelrelay update')
-  console.log('  modelrelay refresh-scores')
-  console.log('  modelrelay config export')
-  console.log('  modelrelay config import <token>')
-  console.log('  modelrelay autoupdate [--enable|--disable|--status] [--interval <hours>]')
-  console.log('  modelrelay autostart [--install|--start|--uninstall|--status]')
+  console.log('  model-foundry [--port <port>] [--log] [--ban <model1,model2>]')
+  console.log('  model-foundry onboard [--port <port>]')
+  console.log('  model-foundry install --autostart')
+  console.log('  model-foundry start --autostart')
+  console.log('  model-foundry uninstall --autostart')
+  console.log('  model-foundry status --autostart')
+  console.log('  model-foundry update')
+  console.log('  model-foundry refresh-scores')
+  console.log('  model-foundry config export')
+  console.log('  model-foundry config import <token>')
+  console.log('  model-foundry autoupdate [--enable|--disable|--status] [--interval <hours>]')
+  console.log('  model-foundry autostart [--install|--start|--uninstall|--status]')
+  console.log('')
+  console.log('Legacy binary alias:')
+  console.log('  modelrelay ...')
   console.log('')
   console.log('Flags:')
   console.log('  --port <number>    Router HTTP port (default: 7352)')
@@ -208,7 +211,7 @@ async function main() {
         payload = (await readStdin()).trim()
       }
       if (!payload) {
-        console.error('Missing config token. Use: modelrelay config import <token> (or pipe token via stdin).')
+        console.error('Missing config token. Use: model-foundry config import <token> (or pipe token via stdin).')
         process.exit(1)
       }
 
@@ -223,7 +226,7 @@ async function main() {
       return
     }
 
-    console.error('Usage: modelrelay config export | modelrelay config import <token>')
+    console.error('Usage: model-foundry config export | model-foundry config import <token>')
     process.exit(1)
   }
 

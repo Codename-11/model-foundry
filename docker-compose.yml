@@ -1,14 +1,14 @@
 services:
-  modelrelay:
+  model-foundry:
     build: .
-    container_name: modelrelay
+    container_name: model-foundry
     restart: unless-stopped
     ports:
       - "7352:7352"
     volumes:
-      - modelrelay_config:/app/config
+      - model_foundry_config:/app/config
     environment:
       - NODE_ENV=production
       - HOME=/app/config
 volumes:
-  modelrelay_config:
+  model_foundry_config:

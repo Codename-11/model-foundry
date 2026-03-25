@@ -37,7 +37,7 @@ Do not bump the major version.
    ```bash
    for i in $(seq 1 30); do sleep 10; v=$(npm view modelrelay version 2>/dev/null); echo "Attempt $i: npm version = $v"; if [ "$v" = "0.1.17" ]; then echo "✅ published!"; break; fi; done
    ```
-7. **Install and Verify**: `npm install -g modelrelay@0.1.17`
+7. **Install and Verify**: `npm install -g model-foundry@0.1.17`
 8. **Test Binary**: `modelrelay --help` (or any other command to verify it works)
 9. **Only when the global npm-installed version works → the release is confirmed**
 
@@ -56,7 +56,7 @@ Do not bump the major version.
    ```
 4. Install the published version globally:
    ```bash
-   npm install -g modelrelay@NEW_VERSION
+   npm install -g model-foundry@NEW_VERSION
    ```
 5. Run the global binary and verify it works:
    ```bash

@@ -1722,19 +1722,23 @@
             <pre class="setup-snippet">{
   "models": {
     "providers": {
-      "modelrelay": {
+      "modelfoundry": {
         "baseUrl": "http://127.0.0.1:7352/v1",
-        "api": "openai-completions"
+        "api": "openai-completions",
+        "apiKey": "no-key",
+        "models": [
+          { "id": "auto-fastest", "name": "Auto Fastest" }
+        ]
       }
     }
   },
   "agents": {
     "defaults": {
       "model": {
-        "primary": "modelrelay/auto-fastest"
+        "primary": "openai/gpt-5.4"
       },
       "models": {
-        "modelrelay/auto-fastest": {}
+        "modelfoundry/auto-fastest": {}
       }
     }
   }
@@ -1764,7 +1768,7 @@
   "provider": {
     "router": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "modelrelay",
+      "name": "modelfoundry",
       "options": {
         "baseURL": "http://127.0.0.1:7352/v1",
         "apiKey": "dummy-key"
