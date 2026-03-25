@@ -1,13 +1,13 @@
-# 🚀 modelrelay
+# 🚀 ModelFoundry
 
-[![npm version](https://img.shields.io/npm/v/modelrelay?color=green&style=flat-square)](https://npmjs.com/package/modelrelay)
-[![GitHub stars](https://img.shields.io/github/stars/ellipticmarketing/modelrelay?style=flat-square)](https://github.com/ellipticmarketing/modelrelay/stargazers)
+[![npm version](https://img.shields.io/npm/v/model-foundry?color=green&style=flat-square)](https://npmjs.com/package/model-foundry)
+[![GitHub stars](https://img.shields.io/github/stars/Codename-11/model-foundry?style=flat-square)](https://github.com/Codename-11/model-foundry/stargazers)
 [![Join Discord](https://img.shields.io/badge/Join_Discord-5865F2?style=flat-square&logo=discord)](https://discord.gg/AqX6Sawq5w)
 
 [**Join our Discord**](https://discord.gg/AqX6Sawq5w) for discussions, feature requests, and community support.
 
 <div align="center">
-  <img src="docs/assets/dashboard.png" alt="ModelRelay Dashboard" width="100%">
+  <img src="docs/assets/dashboard.png" alt="ModelFoundry Dashboard" width="100%">
   <br/>
   <p><i>The smartest, fastest, and completely free local router for your AI coding needs.</i></p>
 </div>
@@ -16,26 +16,26 @@
 
 ### 🔥 100% Free • Auto-Routing • 80+ Models • 11+ Providers • OpenAI-Compatible
 
-**modelrelay** is an OpenAI-compatible local router that benchmarks free coding models across top providers and automatically forwards your requests to the best available model. 
+**ModelFoundry** is an OpenAI-compatible local router that benchmarks free coding models across top providers and automatically forwards your requests to the best available model. For Axiom-Labs, it is positioned as an optional router/dashboard/comparison layer for OpenClaw and OpenCode rather than a core model replacement. 
 
-### ✨ Why use modelrelay?
+### ✨ Why use ModelFoundry?
 
 - 💸 **Completely Free:** Stop paying for API usage. We seamlessly provide access to robust free models.
 - 🧠 **State-of-the-Art (SOTA) Models:** Out-of-the-box availability for top-tier models including **Kimi K2.5, Minimax M2.5, GLM 5, Deepseek V3.2**, and more.
 - 🏢 **Reliable Providers:** We route requests securely through trusted, high-performance platforms like **NVIDIA, Groq, OpenRouter, OpenCode Zen, and Google**.
 - ⚡ **Lightning Fast:** The built-in benchmark continually evaluates metrics to pick the fastest and most capable LLM for your request.
-- 🔄 **OpenAI-Compatible:** A perfect drop-in replacement that works seamlessly with your existing tools, scripts, and workflows.
+- 🔄 **OpenAI-Compatible:** A clean optional layer that works alongside your existing tools, scripts, and workflows.
 
 ## 🚀 Install via NPM
 
 ```bash
-npm install -g modelrelay
+npm install -g model-foundry
 
 # Start it
-modelrelay
+model-foundry
 ```
 
-Once started, modelrelay is accessible at `http://localhost:7352/`.
+Once started, ModelFoundry is accessible at `http://localhost:7352/`.
 
 Router endpoint:
 
@@ -51,31 +51,31 @@ Router endpoint:
 
 
 ```bash
-mkdir modelrelay
+mkdir model-foundry
 
-cd modelrelay
+cd model-foundry
 
-curl -fsSL -o Dockerfile https://raw.githubusercontent.com/ellipticmarketing/modelrelay/master/Dockerfile
-curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/ellipticmarketing/modelrelay/master/docker-compose.yml
+curl -fsSL -o Dockerfile https://raw.githubusercontent.com/Codename-11/model-foundry/master/Dockerfile
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Codename-11/model-foundry/master/docker-compose.yml
 
 docker compose up -d --build
 ```
 
-Once running, modelrelay is accessible at `http://localhost:7352/`.
+Once running, ModelFoundry is accessible at `http://localhost:7352/`.
 
 ## 🔌 Installing Integrations
 
-Use `modelrelay onboard` to save provider keys and auto-configure integrations for OpenClaw or OpenCode.
+Use `model-foundry onboard` to save provider keys and auto-configure integrations for OpenClaw or OpenCode.
 
 ```bash
-modelrelay onboard
+model-foundry onboard
 ```
 
 If you prefer manual setup, use the examples below.
 
 ## OpenCode Integration
 
-`modelrelay onboard` can auto-configure OpenCode.
+`model-foundry onboard` can auto-configure OpenCode.
 
 If you want manual setup, put this in `~/.config/opencode/opencode.json`:
 
@@ -85,7 +85,7 @@ If you want manual setup, put this in `~/.config/opencode/opencode.json`:
   "provider": {
     "router": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "modelrelay",
+      "name": "ModelFoundry",
       "options": {
         "baseURL": "http://127.0.0.1:7352/v1",
         "apiKey": "dummy-key"
@@ -103,15 +103,15 @@ If you want manual setup, put this in `~/.config/opencode/opencode.json`:
 
 ## OpenClaw Integration
 
-`modelrelay onboard` can auto-configure OpenClaw.
+`model-foundry onboard` can auto-configure OpenClaw.
 
-If you want manual setup, merge this into `~/.openclaw/openclaw.json`:
+If you want manual setup, merge this into `~/.openclaw/openclaw.json` and keep it as an optional provider/layer (not your mandatory default model) unless you explicitly want routing enabled by default:
 
 ```json
 {
   "models": {
     "providers": {
-      "modelrelay": {
+      "modelfoundry": {
         "baseUrl": "http://127.0.0.1:7352/v1",
         "api": "openai-completions",
         "apiKey": "no-key",
@@ -124,10 +124,10 @@ If you want manual setup, merge this into `~/.openclaw/openclaw.json`:
   "agents": {
     "defaults": {
       "model": {
-        "primary": "modelrelay/auto-fastest"
+        "primary": "openai/gpt-5.4"
       },
       "models": {
-        "modelrelay/auto-fastest": {}
+        "modelfoundry/auto-fastest": {}
       }
     }
   }
@@ -137,36 +137,39 @@ If you want manual setup, merge this into `~/.openclaw/openclaw.json`:
 ## CLI
 
 ```bash
+model-foundry [--port <number>] [--log] [--ban <model1,model2>]
+model-foundry onboard [--port <number>]
+model-foundry install --autostart
+model-foundry start --autostart
+model-foundry uninstall --autostart
+model-foundry status --autostart
+model-foundry update
+model-foundry autoupdate [--enable|--disable|--status] [--interval <hours>]
+model-foundry autostart [--install|--start|--uninstall|--status]
+model-foundry config export
+model-foundry config import <token>
+
+# legacy binary name remains available too:
 modelrelay [--port <number>] [--log] [--ban <model1,model2>]
-modelrelay onboard [--port <number>]
-modelrelay install --autostart
-modelrelay start --autostart
-modelrelay uninstall --autostart
-modelrelay status --autostart
-modelrelay update
-modelrelay autoupdate [--enable|--disable|--status] [--interval <hours>]
-modelrelay autostart [--install|--start|--uninstall|--status]
-modelrelay config export
-modelrelay config import <token>
 ```
 
 Request terminal logging is disabled by default. Use `--log` to enable it.
 
-`modelrelay install --autostart` also triggers an immediate start attempt so you do not need a separate command after install.
+`model-foundry install --autostart` also triggers an immediate start attempt so you do not need a separate command after install.
 
-During `modelrelay onboard`, you will also be prompted to enable auto-start on login.
+During `model-foundry onboard`, you will also be prompted to enable auto-start on login.
 
-`modelrelay update` upgrades the global npm package and, when autostart is configured, stops the background service first and starts it again after the update.
+`model-foundry update` upgrades the global npm package and, when autostart is configured, stops the background service first and starts it again after the update.
 
-Auto-update is enabled by default. While the router is running, modelrelay checks npm periodically (default: every 24 hours) and applies updates automatically.
+Auto-update is enabled by default. While the router is running, ModelFoundry checks npm periodically (default: every 24 hours) and applies updates automatically.
 
-Use `modelrelay autoupdate --status` to inspect state, `modelrelay autoupdate --disable` to turn it off, and `modelrelay autoupdate --enable --interval 12` to re-enable with a custom interval.
+Use `model-foundry autoupdate --status` to inspect state, `model-foundry autoupdate --disable` to turn it off, and `model-foundry autoupdate --enable --interval 12` to re-enable with a custom interval.
 
-Use `modelrelay config export` to print a transferable config token (base64url-encoded JSON), and `modelrelay config import <token>` to load it on another machine.
+Use `model-foundry config export` to print a transferable config token (base64url-encoded JSON), and `model-foundry config import <token>` to load it on another machine.
 You can also import by stdin:
 
 ```bash
-modelrelay config export | modelrelay config import
+model-foundry config export | model-foundry config import
 ```
 
 ## Endpoints
@@ -177,7 +180,7 @@ modelrelay config export | modelrelay config import
 
 - Use `model: "auto-fastest"` to route to the best model overall
 - Use a grouped model ID such as `minimax-m2.5`, `kimi-k2.5`, or `glm4.7` to route within that model group
-- For grouped IDs, modelrelay selects the provider with the best current QoS for that group
+- For grouped IDs, ModelFoundry selects the provider with the best current QoS for that group
 - In the Web UI, pinned models can now use either `Canonical Group` mode (default, pins the same model across providers) or `Exact Provider Row` mode from `Settings`
 - Streaming and non-streaming requests are both supported
 
@@ -187,7 +190,7 @@ modelrelay config export | modelrelay config import
 
 - Model IDs are grouped slugs such as `minimax-m2.5`, `kimi-k2.5`, and `glm4.7`
 - Each grouped ID can represent the same model across multiple providers
-- When you select one of these IDs in `/v1/chat/completions`, modelrelay routes the request to the provider with the best current QoS for that model group
+- When you select one of these IDs in `/v1/chat/completions`, ModelFoundry routes the request to the provider with the best current QoS for that model group
 - `auto-fastest` is also exposed and routes to the best model overall
 
 Example:
@@ -206,7 +209,7 @@ Example:
 
 ## Config
 
-- Router config file: `~/.modelrelay.json`
+- Router config file: `~/.modelrelay.json` (current compatibility path; rename only if you intentionally update the runtime code)
 - API key env overrides:
   - `NVIDIA_API_KEY`
   - `GROQ_API_KEY`
@@ -220,8 +223,8 @@ Example:
   - `QWEN_CODE_API_KEY` (or `DASHSCOPE_API_KEY`)
   - `GOOGLE_API_KEY`
 
-For `Qwen Code`, modelrelay supports both API keys and Qwen OAuth cached credentials (`~/.qwen/oauth_creds.json`).
-If OAuth credentials exist, modelrelay will use them and refresh access tokens automatically.
+For `Qwen Code`, ModelFoundry supports both API keys and Qwen OAuth cached credentials (`~/.qwen/oauth_creds.json`).
+If OAuth credentials exist, ModelFoundry will use them and refresh access tokens automatically.
 You can also start OAuth directly from the Web UI Providers tab using `Login with Qwen Code`.
 
 ### Config migration (CLI + Web UI)
@@ -233,13 +236,13 @@ You can also start OAuth directly from the Web UI Providers tab using `Login wit
 
 ## Troubleshooting
 
-### Clicking the update button or running `modelrelay` won't perform an update
+### Clicking the update button or running `model-foundry` won't perform an update
 
 To trigger a manual npm update and restart the service, run:
 
 ```bash
-npm i -g modelrelay@latest
-modelrelay autostart --start
+npm i -g model-foundry@latest
+model-foundry autostart --start
 ```
 
 ### Testing updates locally without publishing to npm
@@ -248,7 +251,7 @@ You can point the updater at a local tarball instead of the npm registry:
 
 ```bash
 npm pack
-MODELRELAY_UPDATE_TARBALL=./modelrelay-1.8.3.tgz pnpm start
+MODELRELAY_UPDATE_TARBALL=./model-foundry-1.8.3.tgz pnpm start
 ```
 
 If you want the Web UI to always show an update while testing, set a higher forced version:
@@ -263,11 +266,11 @@ If the tarball filename does not contain a semantic version, also set:
 MODELRELAY_UPDATE_VERSION=1.8.3
 ```
 
-When `MODELRELAY_UPDATE_TARBALL` is set, the Web UI update flow and `modelrelay update`
+When `MODELRELAY_UPDATE_TARBALL` is set, the Web UI update flow and `model-foundry update`
 install from that tarball and bypass the normal Git checkout update block. This is for
 local testing only. `MODELRELAY_FORCE_UPDATE_VERSION` only affects version detection; the
 actual install still comes from the tarball path.
 
 ---
 
-⭐️ If you find modelrelay useful, please consider [starring the repo](https://github.com/ellipticmarketing/modelrelay)!
+⭐️ If you find ModelFoundry useful, please consider [starring the repo](https://github.com/Codename-11/model-foundry)!

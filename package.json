@@ -1,7 +1,7 @@
 {
-  "name": "modelrelay",
+  "name": "model-foundry",
   "version": "1.12.1",
-  "description": "OpenAI-compatible local router that benchmarks free coding models across providers and forwards requests to the best available model.",
+  "description": "OpenAI-compatible optional model router, dashboard, and comparison layer for OpenClaw and OpenCode.",
   "keywords": [
     "nvidia",
     "nim",
@@ -23,19 +23,20 @@
     "openai",
     "api"
   ],
-  "homepage": "https://github.com/modelrelay#readme",
+  "homepage": "https://github.com/Codename-11/model-foundry#readme",
   "bugs": {
-    "url": "https://github.com/modelrelay/issues"
+    "url": "https://github.com/Codename-11/model-foundry/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/modelrelay.git"
+    "url": "git+https://github.com/Codename-11/model-foundry.git"
   },
   "license": "MIT",
   "author": "anonymous",
   "type": "module",
   "main": "bin/modelrelay.js",
   "bin": {
+    "model-foundry": "./bin/modelrelay.js",
     "modelrelay": "./bin/modelrelay.js"
   },
   "files": [

@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ModelRelay</title>
+  <title>ModelFoundry</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="apple-touch-icon" href="/favicon.svg">
   <style>
@@ -1398,7 +1398,7 @@
 <body>
   <div id="update-overlay">
     <div class="update-spinner"></div>
-    <h2 style="margin: 0 0 10px;">Updating ModelRelay</h2>
+    <h2 style="margin: 0 0 10px;">Updating ModelFoundry</h2>
     <p id="update-status-text" style="color: var(--text-muted); margin-bottom: 20px;">Downloading and installing update...</p>
     <div class="progress-container">
       <div id="update-progress-bar" class="progress-bar"></div>
@@ -1602,7 +1602,7 @@
 
     <div id="settings-view" style="display: none;">
       <h2 style="margin-top: 0; font-size: 1.25rem;">Settings</h2>
-      <p style="color: var(--text-muted); margin-bottom: 1.25rem; font-size: 0.875rem;">Manage router update behavior and provider credentials.</p>
+      <p style="color: var(--text-muted); margin-bottom: 1.25rem; font-size: 0.875rem;">Manage optional router update behavior and provider credentials.</p>
       <div id="autoupdate-container" class="provider-section">
         <!-- Auto-update settings generated here -->
       </div>
@@ -1699,7 +1699,7 @@
     <div id="setup-view" style="display: none;">
       <h2 style="margin-top: 0; font-size: 1.25rem;">Setup Instructions</h2>
       <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.875rem;">Configure OpenClaw and OpenCode
-        (Opencode) to use this router.</p>
+        (Opencode) to use this optional router/dashboard layer.</p>
 
       <div class="setup-grid">
         <div class="setup-card">
@@ -1708,9 +1708,9 @@
           <div class="setup-method">
             <p class="setup-method-title">Automatic</p>
             <ol class="setup-steps">
-              <li>Run <code>modelrelay onboard</code>.</li>
+              <li>Run <code>model-foundry onboard</code> (or <code>modelrelay onboard</code> for legacy compatibility).</li>
               <li>When asked <code>Auto-configure OpenClaw now? [Y/n]</code>, answer <code>Y</code>.</li>
-              <li>Start the router with <code>modelrelay</code>.</li>
+              <li>Start the router with <code>model-foundry</code> (or <code>modelrelay</code> for legacy compatibility).</li>
             </ol>
           </div>
 
@@ -1748,9 +1748,9 @@
           <div class="setup-method">
             <p class="setup-method-title">Automatic</p>
             <ol class="setup-steps">
-              <li>Run <code>modelrelay onboard</code>.</li>
+              <li>Run <code>model-foundry onboard</code> (or <code>modelrelay onboard</code> for legacy compatibility).</li>
               <li>When asked <code>Auto-configure OpenCode now? [Y/n]</code>, answer <code>Y</code>.</li>
-              <li>Start the router with <code>modelrelay</code>.</li>
+              <li>Start the router with <code>model-foundry</code> (or <code>modelrelay</code> for legacy compatibility).</li>
             </ol>
           </div>
 
@@ -1815,8 +1815,8 @@
     let chatMessages = [];
     let chatInFlight = false;
     let chatSelectedModel = 'auto-fastest';
-    const CHAT_STORAGE_KEY = 'modelrelay-chat-v1';
-    const CHAT_MODEL_STORAGE_KEY = 'modelrelay-chat-model-v1';
+    const CHAT_STORAGE_KEY = 'modelfoundry-chat-v1';
+    const CHAT_MODEL_STORAGE_KEY = 'modelfoundry-chat-model-v1';
     const MODEL_ID_ALIASES = {
       'mimo-v2-omni-free': 'xiaomi/mimo-v2-omni:free',
     };
@@ -2849,7 +2849,7 @@
           <div class="autoupdate-header">
             <div>
               <h3 class="autoupdate-title">Auto-Update</h3>
-              <div class="autoupdate-subtitle">Keep modelrelay fresh automatically with periodic npm checks and safe background restarts.</div>
+              <div class="autoupdate-subtitle">Keep ModelFoundry fresh automatically with periodic npm checks and safe background restarts.</div>
             </div>
             <span id="autoupdate-pill" class="autoupdate-status-pill ${enabled ? 'on' : 'off'}">${stateText}</span>
           </div>
