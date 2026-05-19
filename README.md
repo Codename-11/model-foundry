@@ -1,5 +1,7 @@
 # 🚀 modelrelay
 
+> **ModelFoundry fork note:** This branch evaluates modelrelay as the ModelFoundry substrate. The project remains a general OpenAI-compatible router; Hermes Proxy support is an optional local preset, not a required or Axiom-specific dependency.
+
 [![npm version](https://img.shields.io/npm/v/modelrelay?color=green&style=flat-square)](https://npmjs.com/package/modelrelay)
 [![GitHub stars](https://img.shields.io/github/stars/ellipticmarketing/modelrelay?style=flat-square)](https://github.com/ellipticmarketing/modelrelay/stargazers)
 [![Join Discord](https://img.shields.io/badge/Join_Discord-5865F2?style=flat-square&logo=discord)](https://discord.gg/AqX6Sawq5w)
