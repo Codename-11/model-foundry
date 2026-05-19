@@ -2009,7 +2009,7 @@ describe('onboard integrations', () => {
       assert.equal(instanceKey, 'openai-compatible:hermes-proxy')
       assert.equal(config.apiKeys[instanceKey], 'unused')
       assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
-      assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8645/v1')
+      assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8648/v1')
       assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
       assert.equal(config.providers[instanceKey].enabled, true)
       assert.equal('discoverModels' in config.providers[instanceKey], false)
@@ -2655,7 +2655,7 @@ describe('OpenAI-compatible multi-instance support', () => {
       assert.deepEqual(preset, {
         id: 'hermes-proxy',
         name: 'Hermes Proxy',
-        baseUrl: 'http://127.0.0.1:8645/v1',
+        baseUrl: 'http://127.0.0.1:8648/v1',
         modelId: 'gpt-5.5',
         apiKey: 'unused',
         enabled: true,
@@ -2694,7 +2694,7 @@ describe('OpenAI-compatible multi-instance support', () => {
       assert.equal(instanceKey, 'openai-compatible:hermes-proxy')
       assert.equal(config.apiKeys[instanceKey], 'unused')
       assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
-      assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8645/v1')
+      assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8648/v1')
       assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
       assert.equal('discoverModels' in config.providers[instanceKey], false)
 
@@ -2702,7 +2702,7 @@ describe('OpenAI-compatible multi-instance support', () => {
       assert.equal(endpoint.instanceKey, 'openai-compatible:hermes-proxy')
       assert.equal(endpoint.id, 'hermes-proxy')
       assert.equal(endpoint.name, 'Hermes Proxy')
-      assert.equal(endpoint.baseUrl, 'http://127.0.0.1:8645/v1')
+      assert.equal(endpoint.baseUrl, 'http://127.0.0.1:8648/v1')
       assert.equal(endpoint.modelId, 'gpt-5.5')
       assert.equal(endpoint.apiKey, 'unused')
       assert.equal(endpoint.discoverModels, true)

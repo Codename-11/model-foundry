@@ -172,7 +172,7 @@ docker compose -f deploy/docker-compose.yml config
 - Modify: `lib/config.js`
 - Modify: `test/test.js`
 
-**Behavior:** `buildHermesProxyEndpointPreset()` should prefer `process.env.MODELFOUNDRY_HERMES_PROXY_BASE_URL` when set, falling back to `http://127.0.0.1:8645/v1`.
+**Behavior:** `buildHermesProxyEndpointPreset()` should prefer `process.env.MODELFOUNDRY_HERMES_PROXY_BASE_URL` when set, falling back to `http://127.0.0.1:8648/v1`.
 
 **Test first:**
 

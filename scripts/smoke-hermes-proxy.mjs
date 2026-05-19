@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const DEFAULT_BASE_URL = 'http://127.0.0.1:8645/v1'
+const DEFAULT_BASE_URL = 'http://127.0.0.1:8648/v1'
 const DEFAULT_MODEL = 'gpt-5.5'
 const REQUEST_TIMEOUT_MS = 15_000
 

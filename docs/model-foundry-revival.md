@@ -28,7 +28,7 @@ Use upstream's existing `openai-compatible:<id>` multi-endpoint support and `/v1
 {
   "id": "hermes-proxy",
   "name": "Hermes Proxy",
-  "baseUrl": "http://127.0.0.1:8645/v1",
+  "baseUrl": "http://127.0.0.1:8648/v1",
   "modelId": "gpt-5.5",
   "apiKey": "unused",
   "enabled": true,
@@ -56,7 +56,7 @@ Use upstream's existing `openai-compatible:<id>` multi-endpoint support and `/v1
 - Smoke script without chat: `HERMES_PROXY_BASE_URL=http://127.0.0.1:8648/v1 node scripts/smoke-hermes-proxy.mjs` — passed; discovered `grok-4.3`, `grok-4.20-reasoning`, `gpt-5.4`, `gpt-5.4-mini`, and `gpt-5.3-codex`.
 - Chat smoke with requested `gpt-5.5`: `HERMES_PROXY_BASE_URL=http://127.0.0.1:8648/v1 HERMES_PROXY_SMOKE_CHAT=1 HERMES_PROXY_SMOKE_MODEL=gpt-5.5 node scripts/smoke-hermes-proxy.mjs` — failed with HTTP 403 because the local proxy did not advertise `gpt-5.5` during validation.
 - Chat smoke with discovered model: `HERMES_PROXY_BASE_URL=http://127.0.0.1:8648/v1 HERMES_PROXY_SMOKE_CHAT=1 HERMES_PROXY_SMOKE_MODEL=grok-4.3 node scripts/smoke-hermes-proxy.mjs` — passed with HTTP 200 and response `ok`.
-- ModelFoundry local app/API smoke: started `node bin/modelrelay.js --port 17352 --no-log` with isolated `HOME=/tmp/model-foundry-smoke-home`; `POST /api/openai-compatible/endpoints/presets/hermes-proxy` returned success; `GET /api/config` showed `openai-compatible:hermes-proxy` with base URL `http://127.0.0.1:8645/v1`, model `gpt-5.5`, and discovery enabled. The temporary smoke server was stopped after validation.
+- ModelFoundry local app/API smoke: started `node bin/modelrelay.js --port 17352 --no-log` with isolated `HOME=/tmp/model-foundry-smoke-home`; `POST /api/openai-compatible/endpoints/presets/hermes-proxy` returned success; `GET /api/config` showed `openai-compatible:hermes-proxy` with base URL `http://127.0.0.1:8648/v1`, model `gpt-5.5`, and discovery enabled. The temporary smoke server was stopped after validation.
 
 ## Branch Summary
 
@@ -72,7 +72,7 @@ Branch `revive/hermes-proxy` is based on upstream `ellipticmarketing/modelrelay/
 
 ## Risks and Known Gaps
 
-- The preset default remains `http://127.0.0.1:8645/v1` for generic local use, but Docker deployments can set `MODELFOUNDRY_HERMES_PROXY_BASE_URL`. Docker-Server's live Hermes OAuth Router was on `http://127.0.0.1:8648/v1` during validation. Port 8645 was a Hermes webhook/API service and returned 404 for `/v1/models`.
+- The preset default is `http://127.0.0.1:8648/v1` for generic local use, and Docker deployments can set `MODELFOUNDRY_HERMES_PROXY_BASE_URL` to the container-reachable equivalent (`http://host.docker.internal:8648/v1` on Docker-Server). Port 8645 was a Hermes webhook/API service and returned 404 for `/v1/models`.
 - Local Hermes Proxy advertised `grok-4.3`, `grok-4.20-reasoning`, `gpt-5.4`, `gpt-5.4-mini`, and `gpt-5.3-codex`; it did not advertise `gpt-5.5` during validation. Chat smoke passed with `grok-4.3` and failed with `gpt-5.5`/`gpt-5.4-mini` at HTTP 403.
 - The Vite dashboard migration from the stale fork remains intentionally deferred.
 - ModelFoundry/modelrelay remains a lightweight local router/dashboard. It does not provide the team/key/quota/cost governance expected from a production central gateway.

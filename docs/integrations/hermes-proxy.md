@@ -16,7 +16,7 @@ Open **Settings → OpenAI-Compatible endpoints** and click **Add Hermes Proxy**
 {
   "id": "hermes-proxy",
   "name": "Hermes Proxy",
-  "baseUrl": "http://127.0.0.1:8645/v1",
+  "baseUrl": "http://127.0.0.1:8648/v1",
   "modelId": "gpt-5.5",
   "apiKey": "unused",
   "enabled": true,
@@ -41,7 +41,7 @@ That value points containers at the verified raw Hermes Proxy model endpoint. On
 Start Hermes Proxy separately, for example:
 
 ```bash
-hermes proxy start --provider auto --host 127.0.0.1 --port 8645
+hermes proxy start --provider auto --host 127.0.0.1 --port 8648
 ```
 
 ## Smoke test
