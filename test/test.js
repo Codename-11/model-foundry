@@ -22,7 +22,7 @@ import {
   selectNextApiKeyFromPool,
   VERDICT_ORDER,
 } from '../lib/utils.js'
-import { buildOpenClawProviderConfig } from '../lib/onboard.js'
+import { applyHermesProxyEndpointPreset, buildOpenClawProviderConfig } from '../lib/onboard.js'
 import { normalizeMissingScoreId } from '../lib/score-fetcher.js'
 import { resolveAutostartExecPath, resolveAutostartNodePath } from '../lib/autostart.js'
 import { exportConfigToken, getApiKey, getApiKeyPool, getMaxTurns, getPinningMode, getProviderBaseUrl, getProviderModelId, getProviderPingIntervalMs, hasMultipleKeys, importConfigToken, normalizeConfigShape, isOpenAICompatibleInstanceKey, getBaseProviderKey, getOpenAICompatibleInstanceId, buildOpenAICompatibleInstanceKey, buildHermesProxyEndpointPreset, listOpenAICompatibleEndpoints, upsertOpenAICompatibleEndpoint, removeOpenAICompatibleEndpoint } from '../lib/config.js'
@@ -1681,6 +1681,19 @@ describe('onboard integrations', () => {
     assert.equal(provider.api, 'openai-completions')
     assert.equal(provider.apiKey, 'no-key')
     assert.deepEqual(provider.models, [{ id: 'auto-fastest', name: 'Auto Fastest' }])
+  })
+
+  it('applies Hermes Proxy preset to onboarding config without requiring a real API key', () => {
+    const config = { apiKeys: {}, providers: {} }
+    const instanceKey = applyHermesProxyEndpointPreset(config)
+
+    assert.equal(instanceKey, 'openai-compatible:hermes-proxy')
+    assert.equal(config.apiKeys[instanceKey], 'unused')
+    assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
+    assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8645/v1')
+    assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
+    assert.equal(config.providers[instanceKey].enabled, true)
+    assert.equal('discoverModels' in config.providers[instanceKey], false)
   })
 })
 

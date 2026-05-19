@@ -3682,11 +3682,14 @@
         const addEndpointSection = document.createElement('div');
         addEndpointSection.className = 'provider-section';
         addEndpointSection.innerHTML = `
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:0.5rem; flex-wrap:wrap;">
             <h3 style="margin:0; font-size:1rem;">OpenAI-Compatible endpoints</h3>
-            <button onclick="addOpenAICompatibleEndpoint()" style="border:1px solid var(--status-success-border); background:var(--status-success-bg); color:var(--status-success-text); cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:600;">+ Add Endpoint</button>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button onclick="addHermesProxyEndpoint()" style="border:1px solid var(--status-info-border); background:var(--status-info-bg); color:var(--status-info-text); cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:600;">Add Hermes Proxy</button>
+              <button onclick="addOpenAICompatibleEndpoint()" style="border:1px solid var(--status-success-border); background:var(--status-success-bg); color:var(--status-success-text); cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:600;">+ Add Endpoint</button>
+            </div>
           </div>
-          <div style="font-size:0.78rem; color:var(--text-muted);">Configure one or more upstream OpenAI-compatible endpoints (vLLM, llama.cpp, custom relays, etc.). Each endpoint exposes a single model id.</div>
+          <div style="font-size:0.78rem; color:var(--text-muted);">Configure one or more upstream OpenAI-compatible endpoints (vLLM, llama.cpp, custom relays, etc.). Each endpoint exposes a single model id. Hermes Proxy uses a local <code>hermes proxy</code> endpoint and is optional for public/general deployments.</div>
         `;
         container.appendChild(addEndpointSection);
 
@@ -4039,6 +4042,28 @@
         let msg = `HTTP ${resp.status}`;
         try { const body = await resp.json(); if (body && body.error) msg = body.error; } catch {}
         alert(`Could not add endpoint: ${msg}`);
+        return;
+      }
+      await loadSettings();
+      await fetchData();
+    }
+
+    async function addHermesProxyEndpoint(overwrite = false) {
+      const resp = await fetch('/api/openai-compatible/endpoints/presets/hermes-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overwrite })
+      });
+      if (resp.status === 409 && !overwrite) {
+        if (confirm('Hermes Proxy endpoint already exists. Refresh it with the preset defaults?')) {
+          return addHermesProxyEndpoint(true);
+        }
+        return;
+      }
+      if (!resp.ok) {
+        let msg = `HTTP ${resp.status}`;
+        try { const body = await resp.json(); if (body && body.error) msg = body.error; } catch {}
+        alert(`Could not add Hermes Proxy endpoint: ${msg}`);
         return;
       }
       await loadSettings();
