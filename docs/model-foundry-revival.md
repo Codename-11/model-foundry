@@ -81,6 +81,18 @@ Branch `revive/hermes-proxy` is based on upstream `ellipticmarketing/modelrelay/
 
 Deploy this branch as a localhost-only Docker service for internal Axiom testing. The Docker image now builds from the fork checkout instead of installing upstream `modelrelay` from npm, and the Docker-Server deployment wires the Hermes Proxy preset to `http://host.docker.internal:8648/v1`.
 
+## Docker-Server Deployment Result
+
+Deployment completed on 2026-05-19 from the fork primary branch `master`.
+
+- Merge commit: `ac9ead3` (`Merge Hermes Proxy ModelFoundry revival`)
+- Deployment hardening commit: `00b0015` (`Run ModelFoundry container as the host user`)
+- Stack path: `~/docker/modelfoundry/`
+- Local OpenAI-compatible endpoint: `http://127.0.0.1:7352/v1`
+- Hermes raw model upstream from Docker: `http://host.docker.internal:8648/v1`
+
+Smoke tests passed for `/v1/models`, direct host/container Hermes connectivity, non-streaming chat, streaming chat with `[DONE]`, config persistence across restart, and a disposable env-configured client. The first pass remains localhost-only. Inbound auth can wait, but alias policy and log redaction are the next practical hardening items before multiple internal apps rely on this endpoint.
+
 ## Next Action
 
-Merge `revive/hermes-proxy` into the fork primary branch, deploy from `~/docker/modelfoundry/src`, and keep ModelFoundry bound to `127.0.0.1:7352` until inbound auth, stable alias policy, and prompt/response log redaction are deliberately added.
+Keep ModelFoundry bound to `127.0.0.1:7352` until inbound auth, stable alias policy, and prompt/response log redaction are deliberately added.
