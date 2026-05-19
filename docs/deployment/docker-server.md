@@ -49,7 +49,7 @@ curl -N http://127.0.0.1:7352/v1/chat/completions \
 
 ## Verified Deployment
 
-Verified on Docker-Server on 2026-05-19 from `Codename-11/model-foundry` `master` at `00b0015`.
+Verified on Docker-Server on 2026-05-19 from `Codename-11/model-foundry` `master` at `12175a9`.
 
 - Stack path: `~/docker/modelfoundry/`
 - Source checkout: `~/docker/modelfoundry/src`
