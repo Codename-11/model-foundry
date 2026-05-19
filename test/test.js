@@ -1907,8 +1907,10 @@ describe('package and entrypoint sanity', () => {
     assert.ok(pkg.version)
     assert.match(pkg.version, /^\d+\.\d+\.\d+$/)
     assert.equal(pkg.type, 'module')
+    assert.ok(pkg.bin['model-foundry'])
+    assert.ok(pkg.bin.modelfoundry)
     assert.ok(pkg.bin.modelrelay)
-    assert.ok(existsSync(join(ROOT, pkg.bin.modelrelay)))
+    assert.ok(existsSync(join(ROOT, pkg.bin['model-foundry'])))
   })
 
   it('CLI script has shebang and required imports', () => {

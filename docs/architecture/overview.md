@@ -21,7 +21,7 @@ At the same time, the dashboard process continuously tracks provider health and 
 
 ### CLI entrypoint
 
-`bin/modelrelay.js`
+`bin/model-foundry.js`
 
 Responsibilities:
 
@@ -94,7 +94,7 @@ That shared process is why onboarding, config transfer, provider settings, pinni
 ## Compatibility notes
 
 - canonical config lives at `~/.model-foundry.json`
-- a legacy mirror is still written to `~/.modelrelay.json`
-- legacy binary alias `modelrelay` still exists
+- a legacy mirror is still written to `~/.model-foundry.json`
+- legacy binary alias `model-foundry` still exists
 
 So the project is evolving names without instantly breaking older setups. A little messy, but usefully messy.

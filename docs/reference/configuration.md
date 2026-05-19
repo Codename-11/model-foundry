@@ -5,7 +5,7 @@
 ### Router config
 
 - canonical: `~/.model-foundry.json`
-- legacy mirror: `~/.modelrelay.json`
+- legacy mirror: `~/.model-foundry.json`
 
 The config stores provider API keys, provider enable/disable state, bans, update settings, and related routing controls.
 
@@ -61,7 +61,7 @@ Platform-specific autostart support is implemented in `lib/autostart.js`.
 
 Uses a user-level systemd unit:
 
-- file: `~/.config/systemd/user/modelrelay.service`
+- file: `~/.config/systemd/user/model-foundry.service`
 
 ### macOS
 

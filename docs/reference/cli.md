@@ -20,7 +20,7 @@ model-foundry autostart [--install|--start|--uninstall|--status]
 Legacy alias:
 
 ```bash
-modelrelay
+model-foundry
 ```
 
 ## Flags
@@ -120,5 +120,5 @@ Returns the models exposed by the router.
 ## Notes
 
 - request logging is off by default
-- the project still supports the legacy `modelrelay` binary name
+- the project still supports the legacy `model-foundry` binary name
 - `refresh-scores` is intended to surface models missing verified benchmark scores

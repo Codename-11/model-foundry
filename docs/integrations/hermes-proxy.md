@@ -1,12 +1,12 @@
 # Hermes Proxy Integration
 
-ModelFoundry/modelrelay can use Hermes Proxy as a normal OpenAI-compatible upstream endpoint. There is no custom Hermes transport in this integration; the preset writes the same `openai-compatible:<id>` config shape that a user could create manually.
+ModelFoundry/model-foundry can use Hermes Proxy as a normal OpenAI-compatible upstream endpoint. There is no custom Hermes transport in this integration; the preset writes the same `openai-compatible:<id>` config shape that a user could create manually.
 
 ## What each layer does
 
 - **Hermes Proxy** is a raw model endpoint. It forwards OpenAI-compatible `/v1/models` and `/v1/chat/completions` requests through Hermes-managed OAuth-backed subscriptions.
 - **Hermes API Server** is different: it runs the full Hermes agent backend with tools, memory, skills, session state, and platform routing. Do not point ModelFoundry at the API Server and expect raw model routing.
-- **ModelFoundry/modelrelay** is a router, dashboard, and benchmarking layer. It can route to free public providers, arbitrary OpenAI-compatible endpoints, and optionally a local Hermes Proxy.
+- **ModelFoundry/model-foundry** is a router, dashboard, and benchmarking layer. It can route to free public providers, arbitrary OpenAI-compatible endpoints, and optionally a local Hermes Proxy.
 
 ## Add from the dashboard
 
@@ -36,7 +36,7 @@ That value points containers at the verified raw Hermes Proxy model endpoint. On
 
 ## Add during onboarding
 
-`modelrelay onboard` asks whether to configure the local Hermes Proxy endpoint. If accepted, it writes `openai-compatible:hermes-proxy` with the preset above. It does not start Hermes Proxy for you.
+`model-foundry onboard` asks whether to configure the local Hermes Proxy endpoint. If accepted, it writes `openai-compatible:hermes-proxy` with the preset above. It does not start Hermes Proxy for you.
 
 Start Hermes Proxy separately, for example:
 

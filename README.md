@@ -1,341 +1,129 @@
-# 🚀 modelrelay
+# ModelFoundry
 
-> **ModelFoundry fork note:** This branch evaluates modelrelay as the ModelFoundry substrate. The project remains a general OpenAI-compatible router; Hermes Proxy support is an optional local preset, not a required or Axiom-specific dependency.
+ModelFoundry is an OpenAI-compatible model gateway for consolidating many model backends behind one local endpoint. It started as a fork of ModelRelay, but is now moving as its own product direction: shared provider endpoint, routing policy, health telemetry, request logs, and optional Hermes Proxy access without baking Hermes or Axiom-specific assumptions into downstream apps.
 
-[![npm version](https://img.shields.io/npm/v/modelrelay?color=green&style=flat-square)](https://npmjs.com/package/modelrelay)
-[![GitHub stars](https://img.shields.io/github/stars/ellipticmarketing/modelrelay?style=flat-square)](https://github.com/ellipticmarketing/modelrelay/stargazers)
-[![Join Discord](https://img.shields.io/badge/Join_Discord-5865F2?style=flat-square&logo=discord)](https://discord.gg/AqX6Sawq5w)
+> Provenance: ModelFoundry derives from [`ellipticmarketing/modelrelay`](https://github.com/ellipticmarketing/modelrelay). See [`ACKNOWLEDGEMENTS.md`](ACKNOWLEDGEMENTS.md). Upstream PRs are now treated as inspiration/cherry-pick candidates, not an automatic product track.
 
-[**Join our Discord**](https://discord.gg/AqX6Sawq5w) for discussions, feature requests, and community support.
+## What it is
 
-<div align="center">
-  <img src="docs/assets/dashboard.png" alt="ModelRelay Dashboard" width="100%">
-  <br/>
-  <p><i>The smartest, fastest, and completely free local router for your AI coding needs.</i></p>
-</div>
+- **OpenAI-compatible API**: expose `/v1/models` and `/v1/chat/completions` for tools that accept a standard OpenAI-style base URL.
+- **Provider aggregation**: route across configured public providers, local providers, and arbitrary OpenAI-compatible upstreams.
+- **Dynamic discovery**: custom OpenAI-compatible endpoints can be discovered via `/v1/models`.
+- **Health-aware routing**: benchmark latency/availability and route `auto-fastest` to a currently healthy candidate.
+- **Dashboard**: inspect live telemetry, providers, account status, request logs, settings, setup snippets, and chat testing.
+- **Hermes Proxy preset**: add a local Hermes Proxy endpoint as a normal OpenAI-compatible upstream. This is optional UX sugar, not a bespoke Hermes-only transport.
+- **Deployment-friendly**: Docker source build, inbound `/v1` API-key guardrails, and persistent config under `~/.model-foundry.json` with a legacy mirror at `~/.modelrelay.json`.
 
----
-
-### 🔥 100% Free • Auto-Routing • 80+ Models • 12+ Providers • OpenAI-Compatible
-
-**modelrelay** is an OpenAI-compatible local router that benchmarks free coding models across top providers and automatically forwards your requests to the best available model. 
-
-### ✨ Why use modelrelay?
-
-- 💸 **Completely Free:** Stop paying for API usage. We seamlessly provide access to robust free models.
-- 🧠 **State-of-the-Art (SOTA) Models:** Out-of-the-box availability for top-tier models including **Kimi K2.5, Minimax M2.5, GLM 5, Deepseek V3.2**, and more.
-- 🏢 **Reliable Providers:** We route requests securely through trusted, high-performance platforms like **NVIDIA, Groq, OpenRouter, OpenCode Zen, Ollama, Kiro, and Google**.
-- ⚡ **Lightning Fast:** The built-in benchmark continually evaluates metrics to pick the fastest and most capable LLM for your request.
-- 🔄 **OpenAI-Compatible:** A perfect drop-in replacement that works seamlessly with your existing tools, scripts, and workflows.
-
-## 🚀 Install via NPM
+## Install from source
 
 ```bash
-npm install -g modelrelay
-
-# Start it
-modelrelay
+git clone https://github.com/Codename-11/model-foundry.git
+cd model-foundry
+npm install
+npm start
 ```
 
-Once started, modelrelay is accessible at `http://localhost:7352/`.
+Then open:
+
+```text
+http://localhost:7352/
+```
 
 Router endpoint:
 
-- Base URL: `http://127.0.0.1:7352/v1`
-- API key: any string
-- Model: `auto-fastest` (router picks actual backend)
-
-## 🚀 Install via Docker
-
-### Prerequisites
-- Docker Engine
-- Docker Compose (the `docker compose` command)
-
-
-```bash
-mkdir modelrelay
-
-cd modelrelay
-
-curl -fsSL -o Dockerfile https://raw.githubusercontent.com/ellipticmarketing/modelrelay/master/Dockerfile
-curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/ellipticmarketing/modelrelay/master/docker-compose.yml
-
-docker compose up -d --build
-```
-
-Once running, modelrelay is accessible at `http://localhost:7352/`.
-
-## 🔌 Installing Integrations
-
-Use `modelrelay onboard` to save provider keys and auto-configure integrations for OpenClaw or OpenCode.
-
-```bash
-modelrelay onboard
-```
-
-If you prefer manual setup, use the examples below.
-
-## OpenCode Integration
-
-`modelrelay onboard` can auto-configure OpenCode.
-
-If you want manual setup, put this in `~/.config/opencode/opencode.json`:
-
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "provider": {
-    "router": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "modelrelay",
-      "options": {
-        "baseURL": "http://127.0.0.1:7352/v1",
-        "apiKey": "dummy-key"
-      },
-      "models": {
-        "auto-fastest": {
-          "name": "Auto Fastest"
-        }
-      }
-    }
-  },
-  "model": "router/auto-fastest"
-}
-```
-
-## OpenClaw Integration
-
-`modelrelay onboard` can auto-configure OpenClaw.
-
-If you want manual setup, merge this into `~/.openclaw/openclaw.json`:
-
-```json
-{
-  "models": {
-    "providers": {
-      "modelrelay": {
-        "baseUrl": "http://127.0.0.1:7352/v1",
-        "api": "openai-completions",
-        "apiKey": "no-key",
-        "models": [
-          { "id": "auto-fastest", "name": "Auto Fastest" }
-        ]
-      }
-    }
-  },
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "modelrelay/auto-fastest"
-      },
-      "models": {
-        "modelrelay/auto-fastest": {}
-      }
-    }
-  }
-}
+```text
+Base URL: http://127.0.0.1:7352/v1
+API key: any string unless inbound API auth is configured
+Model: auto-fastest
 ```
 
 ## CLI
 
-```bash
-modelrelay [--port <number>] [--log] [--ban <model1,model2>]
-modelrelay onboard [--port <number>]
-modelrelay install --autostart
-modelrelay start --autostart
-modelrelay uninstall --autostart
-modelrelay status --autostart
-modelrelay update
-modelrelay autoupdate [--enable|--disable|--status] [--interval <hours>]
-modelrelay autostart [--install|--start|--uninstall|--status]
-modelrelay config export
-modelrelay config import <token>
-```
-
-Request terminal logging is disabled by default. Use `--log` to enable it.
-
-`modelrelay install --autostart` also triggers an immediate start attempt so you do not need a separate command after install.
-
-During `modelrelay onboard`, you will also be prompted to enable auto-start on login.
-
-`modelrelay update` upgrades the global npm package and, when autostart is configured, stops the background service first and starts it again after the update.
-
-Auto-update is enabled by default. While the router is running, modelrelay checks npm periodically (default: every 24 hours) and applies updates automatically.
-
-Use `modelrelay autoupdate --status` to inspect state, `modelrelay autoupdate --disable` to turn it off, and `modelrelay autoupdate --enable --interval 12` to re-enable with a custom interval.
-
-Use `modelrelay config export` to print a transferable config token (base64url-encoded JSON), and `modelrelay config import <token>` to load it on another machine.
-You can also import by stdin:
+Primary commands use `model-foundry`. `modelfoundry` and `modelrelay` remain compatibility aliases while older configs/scripts migrate.
 
 ```bash
-modelrelay config export | modelrelay config import
+model-foundry [--port <number>] [--log] [--ban <model1,model2>]
+model-foundry onboard [--port <number>]
+model-foundry install --autostart
+model-foundry start --autostart
+model-foundry uninstall --autostart
+model-foundry status --autostart
+model-foundry update
+model-foundry autoupdate [--enable|--disable|--status] [--interval <hours>]
+model-foundry autostart [--install|--start|--uninstall|--status]
+model-foundry config export
+model-foundry config import <token>
+model-foundry config set-keys <provider> <key1,key2,...>
+model-foundry config add-key <provider> <key>
+model-foundry config remove-key <provider> <key|index>
+model-foundry config set-maxturns <provider> <number>
 ```
 
-## Endpoints
+## Docker
 
-### API authentication
+This repository builds from source so local ModelFoundry changes are present in the container:
 
-`/v1/*` routes support optional inbound API-key auth via:
-
-```env
-MODELFOUNDRY_INBOUND_API_KEYS=YOUR_MODELFOUNDRY_KEY,OPTIONAL_SECOND_KEY
+```bash
+docker build -t model-foundry .
+docker run --rm -p 7352:7352 \
+  -v "$HOME/.model-foundry:/home/node" \
+  model-foundry
 ```
 
-When one or more keys are configured, clients must send either:
+A Docker-Server compose deployment lives outside this repo under `~/docker/modelfoundry/`.
 
-```http
-Authorization: Bearer YOUR_MODELFOUNDRY_KEY
+## Hermes Proxy as a provider
+
+If `hermes proxy` is running, add it from the dashboard or with onboarding. ModelFoundry stores it as a normal OpenAI-compatible endpoint named `openai-compatible:hermes-proxy`.
+
+Defaults:
+
+```text
+Base URL: http://127.0.0.1:8645/v1
+Model fallback: gpt-5.5
+Discovery: on
+Auth: bearer-style by default
 ```
 
-or:
+Docker-Server sets `MODELFOUNDRY_HERMES_PROXY_BASE_URL` to the host-accessible Hermes Proxy route.
 
-```http
-X-API-Key: YOUR_MODELFOUNDRY_KEY
-```
+## OpenAI-compatible endpoint example
 
-If no inbound keys are configured, `/v1/*` remains unauthenticated for purely local/dev installs. Do not bind or expose ModelFoundry beyond localhost without setting `MODELFOUNDRY_INBOUND_API_KEYS`.
-
-### `/v1/chat/completions`
-
-`POST /v1/chat/completions` is an OpenAI-compatible chat completions endpoint.
-
-- Use `model: "auto-fastest"` to route to the best model overall
-- Use a grouped model ID such as `minimax-m2.5`, `kimi-k2.5`, or `glm4.7` to route within that model group
-- For grouped IDs, modelrelay selects the provider with the best current QoS for that group
-- In the Web UI, pinned models can now use either `Canonical Group` mode (default, pins the same model across providers) or `Exact Provider Row` mode from `Settings`
-- Streaming and non-streaming requests are both supported
-
-### `/v1/models`
-
-`GET /v1/models` returns the models exposed by the router.
-
-- Model IDs are grouped slugs such as `minimax-m2.5`, `kimi-k2.5`, and `glm4.7`
-- Each grouped ID can represent the same model across multiple providers
-- When you select one of these IDs in `/v1/chat/completions`, modelrelay routes the request to the provider with the best current QoS for that model group
-- `auto-fastest` is also exposed and routes to the best model overall
-
-Example:
+Any app/tool that accepts the standard triple can point here:
 
 ```json
 {
-  "object": "list",
-  "data": [
-    { "id": "auto-fastest", "object": "model", "owned_by": "router" },
-    { "id": "minimax-m2.5", "object": "model", "owned_by": "relay" },
-    { "id": "kimi-k2.5", "object": "model", "owned_by": "relay" },
-    { "id": "glm4.7", "object": "model", "owned_by": "relay" }
-  ]
+  "baseUrl": "http://127.0.0.1:7352/v1",
+  "apiKey": "local-key",
+  "model": "auto-fastest"
 }
 ```
 
-## Config
+For tools with provider/model namespaces, use a ModelFoundry provider name and the `auto-fastest` model, for example `model-foundry/auto-fastest`.
 
-- Router config file: `~/.modelrelay.json`
-- API key env overrides:
-  - `NVIDIA_API_KEY`
-  - `GROQ_API_KEY`
-  - `CEREBRAS_API_KEY`
-  - `SAMBANOVA_API_KEY`
-- `OPENROUTER_API_KEY`
-- `OPENCODE_API_KEY`
-- `OLLAMA_API_KEY`
-- `OLLAMA_BASE_URL`
-- `OLLAMA_MODEL`
-  - `CODESTRAL_API_KEY`
-  - `HYPERBOLIC_API_KEY`
-  - `SCALEWAY_API_KEY`
-  - `KIRO_REFRESH_TOKEN`
-  - `KIRO_OAUTH_CLIENT_ID` (optional, for AWS Builder/IDC refresh flow)
-  - `KIRO_OAUTH_CLIENT_SECRET` (optional, for AWS Builder/IDC refresh flow)
-  - `GOOGLE_API_KEY`
+## Config and logs
 
-Kiro OAuth notes:
-- Base endpoint is preconfigured to `https://codewhisperer.us-east-1.amazonaws.com/generateAssistantResponse`
-- Current Kiro model IDs include `claude-sonnet-4.5` and `claude-haiku-4.5`
-- Authentication uses OAuth access tokens refreshed from:
-  - `KIRO_REFRESH_TOKEN`, or
-  - `~/.aws/sso/cache` (auto-detected refresh token), following OmniRoute’s approach.
+- Canonical config: `~/.model-foundry.json`
+- Legacy compatibility mirror: `~/.modelrelay.json`
+- Request log file: `~/.modelrelay-logs.json` for now, retained for compatibility
+- Inbound API auth env: `MODELFOUNDRY_INBOUND_API_KEYS`
+- Hermes Proxy preset env: `MODELFOUNDRY_HERMES_PROXY_BASE_URL`
+- Local update test envs still accept legacy `MODELRELAY_*` names until the updater compatibility window is removed.
 
-For hosted Ollama, set `OLLAMA_API_KEY` and optionally override `OLLAMA_BASE_URL` / `OLLAMA_MODEL`.
-If you leave the Ollama base URL blank in the UI, modelrelay defaults to `https://ollama.com/v1`.
-With a valid Ollama API key, modelrelay will discover available Ollama models automatically.
-If you point Ollama at a local host such as `http://127.0.0.1:11434`, modelrelay will also auto-discover models and does not require an API key.
-
-### OpenAI-Compatible endpoints
-
-modelrelay supports configuring multiple OpenAI-compatible upstream endpoints (vLLM, llama.cpp, custom relays, etc.). Each endpoint exposes a single model id and is routed independently.
-
-- In the Web UI, click `+ Add Endpoint` under the **OpenAI-Compatible endpoints** group, supply a name, base URL, model id, and optional API key. Each endpoint then gets its own provider row with status, ping, and rate-limit information.
-- modelrelay automatically probes `/v1/models` on each endpoint and exposes every returned model as a routable row. The manually configured model id (if any) is merged in as a fallback. Discovery is on by default and can be toggled per-endpoint with the **"Discover models from `/v1/models`"** checkbox.
-- Endpoints are stored in `~/.modelrelay.json` under composite keys like `openai-compatible:my-vllm`:
-  ```jsonc
-  {
-    "apiKeys": {
-      "openai-compatible:my-vllm": "sk-…",
-      "openai-compatible:groq-clone": "sk-…"
-    },
-    "providers": {
-      "openai-compatible:my-vllm":    { "enabled": true, "name": "Local vLLM", "baseUrl": "http://localhost:8000/v1", "modelId": "qwen-coder" },
-      "openai-compatible:groq-clone": { "enabled": true, "name": "Groq Clone", "baseUrl": "https://example/v1",        "modelId": "llama-3.3-70b" }
-    }
-  }
-  ```
-- Legacy single-endpoint configs (a bare `openai-compatible` entry without an instance suffix) are migrated automatically to `openai-compatible:default` on first run.
-- The legacy env vars `OPENAI_COMPATIBLE_API_KEY` / `OPENAI_COMPATIBLE_BASE_URL` / `OPENAI_COMPATIBLE_MODEL` continue to work and apply to the `:default` instance.
-- Endpoints can also be managed via the API: `POST /api/openai-compatible/endpoints` (body: `{name, baseUrl, modelId, apiKey?}`) and `DELETE /api/openai-compatible/endpoints/<id>`.
-
-#### Hermes Proxy preset
-
-The ModelFoundry fork adds an optional **Add Hermes Proxy** preset for local Hermes subscription proxy users. It creates `openai-compatible:hermes-proxy` with `http://127.0.0.1:8645/v1`, placeholder API key `unused`, model fallback `gpt-5.5`, and `/v1/models` discovery enabled.
-
-This is still a generic OpenAI-compatible endpoint. Hermes Proxy is not required for public/general deployments, and it is not the same thing as the Hermes API Server: Hermes Proxy is a raw model endpoint, while the API Server runs the full agent backend with tools, memory, skills, and session state.
-
-Do not expose Hermes Proxy on LAN/public interfaces without real network/auth controls. See [`docs/integrations/hermes-proxy.md`](docs/integrations/hermes-proxy.md) for setup and smoke-test commands.
-
-### Config migration (CLI + Web UI)
-
-- In the Web UI, open `Settings` -> `Configuration Transfer` to export/copy/import a token.
-- The token includes your full config (including API keys, provider toggles, pinning mode, bans, filter rules, and auto-update settings).
-- Treat tokens as secrets. Anyone with the token can import your keys/settings.
-- Alternative: copy the config file directly from `~/.modelrelay.json` to the other machine at the same path (`~/.modelrelay.json`).
-
-## Troubleshooting
-
-### Clicking the update button or running `modelrelay` won't perform an update
-
-To trigger a manual npm update and restart the service, run:
+## Development
 
 ```bash
-npm i -g modelrelay@latest
-modelrelay autostart --start
+npm test
+npm run smoke:hermes-proxy
 ```
 
-### Testing updates locally without publishing to npm
-
-You can point the updater at a local tarball instead of the npm registry:
+Before publishing or deployment changes, verify:
 
 ```bash
-npm pack
-MODELRELAY_UPDATE_TARBALL=./modelrelay-1.8.3.tgz pnpm start
+npm test
+git diff --check
 ```
 
-If you want the Web UI to always show an update while testing, set a higher forced version:
+## Direction
 
-```bash
-MODELRELAY_FORCE_UPDATE_VERSION=9.9.9
-```
-
-If the tarball filename does not contain a semantic version, also set:
-
-```bash
-MODELRELAY_UPDATE_VERSION=1.8.3
-```
-
-When `MODELRELAY_UPDATE_TARBALL` is set, the Web UI update flow and `modelrelay update`
-install from that tarball and bypass the normal Git checkout update block. This is for
-local testing only. `MODELRELAY_FORCE_UPDATE_VERSION` only affects version detection; the
-actual install still comes from the tarball path.
-
----
-
-⭐️ If you find modelrelay useful, please consider [starring the repo](https://github.com/ellipticmarketing/modelrelay)!
+ModelFoundry is becoming a lightweight central model gateway/router, not just a free-model scout. Heavier enterprise controls such as teams, billing, quotas, audit exports, and organization-level key governance may eventually belong here or in a compatible upstream gateway tier, but the immediate goal is a clean common endpoint for apps and agent tools.

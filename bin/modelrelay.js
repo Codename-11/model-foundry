@@ -13,28 +13,28 @@ import { runUpdateCommand } from '../lib/update.js'
 import chalk from 'chalk'
 
 function printHelp() {
-  console.log('modelrelay')
+  console.log('model-foundry')
   console.log('')
   console.log('Usage:')
-  console.log('  modelrelay [--port <port>] [--log] [--ban <model1,model2>]')
-  console.log('  modelrelay onboard [--port <port>]')
-  console.log('  modelrelay install --autostart')
-  console.log('  modelrelay start --autostart')
-  console.log('  modelrelay uninstall --autostart')
-  console.log('  modelrelay status --autostart')
-  console.log('  modelrelay status')
-  console.log('  modelrelay update')
-  console.log('  modelrelay refresh-scores')
-  console.log('  modelrelay config export')
-  console.log('  modelrelay config import <token>')
-  console.log('  modelrelay config set-keys <provider> <key1,key2,...>')
-  console.log('  modelrelay config add-key <provider> <key>')
-  console.log('  modelrelay config remove-key <provider> <key>')
-  console.log('  modelrelay config remove-key <provider> <index>')
-  console.log('  modelrelay config set-maxturns <provider> <number>')
-  console.log('  modelrelay config set-maxturns <provider> 0')
-  console.log('  modelrelay autoupdate [--enable|--disable|--status] [--interval <hours>]')
-  console.log('  modelrelay autostart [--install|--start|--uninstall|--status]')
+  console.log('  model-foundry [--port <port>] [--log] [--ban <model1,model2>]')
+  console.log('  model-foundry onboard [--port <port>]')
+  console.log('  model-foundry install --autostart')
+  console.log('  model-foundry start --autostart')
+  console.log('  model-foundry uninstall --autostart')
+  console.log('  model-foundry status --autostart')
+  console.log('  model-foundry status')
+  console.log('  model-foundry update')
+  console.log('  model-foundry refresh-scores')
+  console.log('  model-foundry config export')
+  console.log('  model-foundry config import <token>')
+  console.log('  model-foundry config set-keys <provider> <key1,key2,...>')
+  console.log('  model-foundry config add-key <provider> <key>')
+  console.log('  model-foundry config remove-key <provider> <key>')
+  console.log('  model-foundry config remove-key <provider> <index>')
+  console.log('  model-foundry config set-maxturns <provider> <number>')
+  console.log('  model-foundry config set-maxturns <provider> 0')
+  console.log('  model-foundry autoupdate [--enable|--disable|--status] [--interval <hours>]')
+  console.log('  model-foundry autostart [--install|--start|--uninstall|--status]')
   console.log('')
   console.log('Flags:')
   console.log('  --port <number>    Router HTTP port (default: 7352)')
@@ -215,7 +215,7 @@ async function main() {
         payload = (await readStdin()).trim()
       }
       if (!payload) {
-        console.error('Missing config token. Use: modelrelay config import <token> (or pipe token via stdin).')
+        console.error('Missing config token. Use: model-foundry config import <token> (or pipe token via stdin).')
         process.exit(1)
       }
 
@@ -234,7 +234,7 @@ async function main() {
       const provider = cliArgs.configProvider
       const keysRaw = cliArgs.configKeys
       if (!provider || !keysRaw) {
-        console.error('Usage: modelrelay config set-keys <provider> <key1,key2,...>')
+        console.error('Usage: model-foundry config set-keys <provider> <key1,key2,...>')
         process.exit(1)
       }
       const keys = keysRaw.split(',').map(k => k.trim()).filter(Boolean)
@@ -259,7 +259,7 @@ async function main() {
       const provider = cliArgs.configProvider
       const key = cliArgs.configKeys
       if (!provider || !key) {
-        console.error('Usage: modelrelay config add-key <provider> <key>')
+        console.error('Usage: model-foundry config add-key <provider> <key>')
         process.exit(1)
       }
       const config = loadConfig()
@@ -290,7 +290,7 @@ async function main() {
       const provider = cliArgs.configProvider
       const keyOrIndex = cliArgs.configKeys
       if (!provider || keyOrIndex === undefined) {
-        console.error('Usage: modelrelay config remove-key <provider> <key|index>')
+        console.error('Usage: model-foundry config remove-key <provider> <key|index>')
         process.exit(1)
       }
       const config = loadConfig()
@@ -342,7 +342,7 @@ async function main() {
       const provider = cliArgs.configProvider
       const val = cliArgs.configMaxTurns
       if (!provider || val === undefined) {
-        console.error('Usage: modelrelay config set-maxturns <provider> <number>')
+        console.error('Usage: model-foundry config set-maxturns <provider> <number>')
         process.exit(1)
       }
       const maxTurns = Math.floor(Number(val))
@@ -365,11 +365,11 @@ async function main() {
       return
     }
 
-    console.error('Usage: modelrelay config export | modelrelay config import <token>')
-    console.error('       modelrelay config set-keys <provider> <key1,key2,...>')
-    console.error('       modelrelay config add-key <provider> <key>')
-    console.error('       modelrelay config remove-key <provider> <key|index>')
-    console.error('       modelrelay config set-maxturns <provider> <number>')
+    console.error('Usage: model-foundry config export | model-foundry config import <token>')
+    console.error('       model-foundry config set-keys <provider> <key1,key2,...>')
+    console.error('       model-foundry config add-key <provider> <key>')
+    console.error('       model-foundry config remove-key <provider> <key|index>')
+    console.error('       model-foundry config set-maxturns <provider> <number>')
     process.exit(1)
   }
 
@@ -389,7 +389,7 @@ async function main() {
 
     if (configuredProviders.length === 0) {
       console.log(chalk.dim('No accounts configured.'))
-      console.log(chalk.dim('Add keys: modelrelay config add-key <provider> <key>'))
+      console.log(chalk.dim('Add keys: model-foundry config add-key <provider> <key>'))
       return
     }
 

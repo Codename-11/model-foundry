@@ -44,7 +44,7 @@ Potential improvements:
 
 - richer OpenClaw examples for optional routed lanes
 - more presets for local AI toolchains using OpenAI-compatible clients
-- clearer migration notes for older `modelrelay` installs
+- clearer migration notes for older `model-foundry` installs
 
 ### 5. Operational polish
 

@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ModelFoundry / ModelRelay</title>
+  <title>ModelFoundry / ModelFoundry</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="apple-touch-icon" href="/favicon.svg">
   <style>
@@ -1693,11 +1693,11 @@
 
 <body>
   <div id="local-file-warning" style="display:none; margin:16px auto 0; width:min(1100px, calc(100vw - 32px)); background:var(--status-warning-bg); border:1px solid var(--status-warning-border); color:var(--status-warning-text); border-radius:12px; padding:12px 14px; font-size:0.84rem; line-height:1.5;">
-    This dashboard is being opened as a static <code>file://</code> page. Use <b>http://localhost:7352</b> instead so provider actions and OAuth callbacks can talk to the running ModelRelay server.
+    This dashboard is being opened as a static <code>file://</code> page. Use <b>http://localhost:7352</b> instead so provider actions and OAuth callbacks can talk to the running ModelFoundry server.
   </div>
   <div id="update-overlay">
     <div class="update-spinner"></div>
-    <h2 style="margin: 0 0 10px;">Updating ModelRelay</h2>
+    <h2 style="margin: 0 0 10px;">Updating ModelFoundry</h2>
     <p id="update-status-text" style="color: var(--text-muted); margin-bottom: 20px;">Downloading and installing update...</p>
     <div class="progress-container">
       <div id="update-progress-bar" class="progress-bar"></div>
@@ -2040,9 +2040,9 @@
           <div class="setup-method">
             <p class="setup-method-title">Automatic</p>
             <ol class="setup-steps">
-              <li>Run <code>modelrelay onboard</code>.</li>
+              <li>Run <code>model-foundry onboard</code>.</li>
               <li>When asked <code>Auto-configure OpenClaw now? [Y/n]</code>, answer <code>Y</code>.</li>
-              <li>Start the router with <code>modelrelay</code>.</li>
+              <li>Start the router with <code>model-foundry</code>.</li>
             </ol>
           </div>
 
@@ -2054,7 +2054,7 @@
             <pre class="setup-snippet">{
   "models": {
     "providers": {
-      "modelrelay": {
+      "model-foundry": {
         "baseUrl": "http://127.0.0.1:7352/v1",
         "api": "openai-completions"
       }
@@ -2063,10 +2063,10 @@
   "agents": {
     "defaults": {
       "model": {
-        "primary": "modelrelay/auto-fastest"
+        "primary": "model-foundry/auto-fastest"
       },
       "models": {
-        "modelrelay/auto-fastest": {}
+        "model-foundry/auto-fastest": {}
       }
     }
   }
@@ -2080,9 +2080,9 @@
           <div class="setup-method">
             <p class="setup-method-title">Automatic</p>
             <ol class="setup-steps">
-              <li>Run <code>modelrelay onboard</code>.</li>
+              <li>Run <code>model-foundry onboard</code>.</li>
               <li>When asked <code>Auto-configure OpenCode now? [Y/n]</code>, answer <code>Y</code>.</li>
-              <li>Start the router with <code>modelrelay</code>.</li>
+              <li>Start the router with <code>model-foundry</code>.</li>
             </ol>
           </div>
 
@@ -2096,7 +2096,7 @@
   "provider": {
     "router": {
       "npm": "@ai-sdk/openai-compatible",
-      "name": "modelrelay",
+      "name": "model-foundry",
       "options": {
         "baseURL": "http://127.0.0.1:7352/v1",
         "apiKey": "dummy-key"
@@ -2139,7 +2139,7 @@
   <script>
     // Theme toggle
     (function() {
-      const saved = localStorage.getItem('modelrelay-theme');
+      const saved = localStorage.getItem('modelfoundry-theme');
       if (saved === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');
       }
@@ -2149,10 +2149,10 @@
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       if (isDark) {
         document.documentElement.removeAttribute('data-theme');
-        localStorage.setItem('modelrelay-theme', 'light');
+        localStorage.setItem('modelfoundry-theme', 'light');
       } else {
         document.documentElement.setAttribute('data-theme', 'dark');
-        localStorage.setItem('modelrelay-theme', 'dark');
+        localStorage.setItem('modelfoundry-theme', 'dark');
       }
       updateThemeIcon();
     }
@@ -2198,8 +2198,8 @@
     let chatMessages = [];
     let chatInFlight = false;
     let chatSelectedModel = 'auto-fastest';
-    const CHAT_STORAGE_KEY = 'modelrelay-chat-v1';
-    const CHAT_MODEL_STORAGE_KEY = 'modelrelay-chat-model-v1';
+    const CHAT_STORAGE_KEY = 'modelfoundry-chat-v1';
+    const CHAT_MODEL_STORAGE_KEY = 'modelfoundry-chat-model-v1';
     const MODEL_ID_ALIASES = {
       'mimo-v2-omni-free': 'xiaomi/mimo-v2-omni:free',
     };
@@ -3235,7 +3235,7 @@
           <div class="autoupdate-header">
             <div>
               <h3 class="autoupdate-title">Auto-Update</h3>
-              <div class="autoupdate-subtitle">Keep modelrelay fresh automatically with periodic npm checks and safe background restarts.</div>
+              <div class="autoupdate-subtitle">Keep ModelFoundry fresh automatically with periodic npm checks and safe background restarts.</div>
             </div>
             <span id="autoupdate-pill" class="autoupdate-status-pill ${enabled ? 'on' : 'off'}">${stateText}</span>
           </div>
@@ -3771,7 +3771,7 @@
           const baseUrlPlaceholder = p.key === 'ollama' ? 'https://ollama.com/v1' : 'https://your-endpoint.example/v1';
           const baseUrlNote = p.isOpenAICompatibleInstance
             ? 'Set the upstream base URL for this endpoint. The model id below is optional — leave blank if discovery returns the models you need.'
-            : 'Set the upstream base URL and exact model ID for this provider. If base URL is blank, modelrelay uses https://ollama.com/v1 and expects an OLLAMA_API_KEY.';
+            : 'Set the upstream base URL and exact model ID for this provider. If base URL is blank, ModelFoundry uses https://ollama.com/v1 and expects an OLLAMA_API_KEY.';
           const openAiCompatibleFieldsHtml = showsBaseUrlFields ? `
             <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
               <input type="text" id="base-url-${p.key}" value="${escapeHtml(p.baseUrl || '')}" placeholder="${baseUrlPlaceholder}" style="flex:1;" onblur="updateProviderBaseUrl('${p.key}')">
@@ -3899,7 +3899,7 @@
                 <button onclick="saveKiroRefreshToken()" style="border:1px solid var(--status-success-border); background:var(--status-success-bg); color:var(--status-success-text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; white-space:nowrap;">Save Token</button>
                 ${p.hasKey ? `<button onclick="deleteProviderKey('${p.key}')" style="border:1px solid var(--status-error-border); background:var(--status-error-bg); color:var(--status-error-text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; white-space:nowrap;">Delete Token</button>` : ''}
               </div>
-              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">ModelRelay stores the resulting Kiro refresh token locally in your ModelRelay config. Auto-import/manual token are still useful if Kiro is already signed in on this machine.</div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">ModelFoundry stores the resulting Kiro refresh token locally in your ModelFoundry config. Auto-import/manual token are still useful if Kiro is already signed in on this machine.</div>
               ${kiroDeviceAuthHtml}
               ${kiroBrowserAuthHtml}
               ${kiroMessageHtml}
@@ -4418,7 +4418,7 @@
         if (verifyUrl) {
           window.open(verifyUrl, 'kiro_builder_id_verify');
         }
-        setKiroUiMessage('Opened the AWS Builder ID verification page. Approve the request there and ModelRelay will finish the connection automatically.', 'info');
+        setKiroUiMessage('Opened the AWS Builder ID verification page. Approve the request there and ModelFoundry will finish the connection automatically.', 'info');
         pollKiroBuilderIdAuth().catch(err => {
           setKiroUiMessage(err.message || 'Failed while polling AWS Builder ID authorization.', 'error');
         });
