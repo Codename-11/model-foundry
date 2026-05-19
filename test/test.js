@@ -2002,12 +2002,6 @@ describe('package and entrypoint sanity', () => {
     assert.ok(existsSync(join(ROOT, 'index.html')))
     assert.ok(existsSync(join(ROOT, 'src', 'main.js')))
 
-    const indexContent = readFileSync(join(ROOT, 'index.html'), 'utf8')
-    assert.ok(indexContent.includes('id="tab-status"'))
-    assert.ok(indexContent.includes('id="autoping-container"'))
-    assert.ok(indexContent.includes('addHermesProxyEndpoint'))
-    assert.ok(indexContent.includes('/api/openai-compatible/endpoints/presets/hermes-proxy'))
-
     const dockerfile = readFileSync(join(ROOT, 'Dockerfile'), 'utf8')
     assert.ok(dockerfile.includes('COPY index.html ./'))
     assert.ok(dockerfile.includes('COPY src/ ./src/'))

@@ -37,6 +37,7 @@
   "main": "bin/modelrelay.js",
   "bin": {
     "model-foundry": "./bin/modelrelay.js",
+    "modelfoundry": "./bin/modelrelay.js",
     "modelrelay": "./bin/modelrelay.js"
   },
   "files": [
@@ -44,6 +45,9 @@
     "lib/",
     "dist/",
     "public/",
+    "index.html",
+    "src/",
+    "scripts/",
     "sources.js",
     "scores.js",
     "README.md",
@@ -56,11 +60,20 @@
     "dev:client": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test test/test.js"
+    "test": "node --test test/test.js",
+    "smoke:hermes-proxy": "node scripts/smoke-hermes-proxy.mjs"
   },
   "dependencies": {
     "chalk": "^5.4.1",
     "express": "^5.2.1"
+  },
+  "overrides": {
+    "path-to-regexp": "8.4.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "path-to-regexp": "8.4.0"
+    }
   },
   "engines": {
     "node": ">=18.0.0"
