@@ -27,7 +27,7 @@ import { normalizeMissingScoreId } from '../lib/score-fetcher.js'
 import { resolveAutostartExecPath, resolveAutostartNodePath } from '../lib/autostart.js'
 import { exportConfigToken, getApiKey, getApiKeyPool, getMaxTurns, getPinningMode, getProviderBaseUrl, getProviderModelId, getProviderPingIntervalMs, hasMultipleKeys, importConfigToken, normalizeConfigShape, isOpenAICompatibleInstanceKey, getBaseProviderKey, getOpenAICompatibleInstanceId, buildOpenAICompatibleInstanceKey, buildHermesProxyEndpointPreset, listOpenAICompatibleEndpoints, upsertOpenAICompatibleEndpoint, removeOpenAICompatibleEndpoint } from '../lib/config.js'
 import { buildNpmInstallInvocation, buildWindowsPostUpdateRestartCommand, getForcedUpdateVersion, getLocalUpdateTarballPath, getLocalUpdateVersion, isRunningFromSource, shouldStopAutostartBeforeUpdate } from '../lib/update.js'
-import { buildKiroRequestPayload, buildKiroSocialLoginUrl, buildOpencodeHeaders, buildOpencodeProjectId, buildProviderRequestBody, buildProviderRequestHeaders, exchangeKiroSocialAuthFlow, exchangeKiroSocialCode, extractKiroEmailFromAccessToken, extractOllamaModelRecords, extractOpenAICompatibleModelRecords, buildOpenAICompatibleModelsListUrl, getAccountStatus, getKiroRefreshToken, hasKiroAuthConfigured, getPinnedModelCandidate, getPinnedModelMatches, isProviderAuthOptional, isProviderBearerAuthEnabled, parseKiroEventFrame, pollKiroBuilderIdToken, providerWantsBearerAuth, resolveKiroOAuthAccessToken, shouldRetryOptionalProviderWithBearer, startKiroBuilderIdDeviceAuth, startKiroSocialAuthFlow, toOllamaModelMeta, toOpenAICompatibleDiscoveredModelMeta, toOpenCodeModelMeta, toOpenRouterModelMeta, toKiloCodeModelMeta, transformKiroResponse } from '../lib/server.js'
+import { buildKiroRequestPayload, buildKiroSocialLoginUrl, buildOpencodeHeaders, buildOpencodeProjectId, buildProviderRequestBody, buildProviderRequestHeaders, exchangeKiroSocialAuthFlow, exchangeKiroSocialCode, extractInboundApiCredential, extractKiroEmailFromAccessToken, extractOllamaModelRecords, extractOpenAICompatibleModelRecords, buildOpenAICompatibleModelsListUrl, getAccountStatus, getConfiguredInboundApiKeys, getKiroRefreshToken, hasKiroAuthConfigured, isInboundApiRequestAuthorized, getPinnedModelCandidate, getPinnedModelMatches, isProviderAuthOptional, isProviderBearerAuthEnabled, parseInboundApiKeys, parseKiroEventFrame, pollKiroBuilderIdToken, providerWantsBearerAuth, resolveKiroOAuthAccessToken, shouldRetryOptionalProviderWithBearer, startKiroBuilderIdDeviceAuth, startKiroSocialAuthFlow, toOllamaModelMeta, toOpenAICompatibleDiscoveredModelMeta, toOpenCodeModelMeta, toOpenRouterModelMeta, toKiloCodeModelMeta, transformKiroResponse } from '../lib/server.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
 
@@ -245,6 +245,39 @@ describe('sources data integrity', () => {
     }
   })
 })
+
+describe('inbound API authentication', () => {
+  it('parses configured inbound API keys from comma and newline separated env values', () => {
+    assert.deepEqual(parseInboundApiKeys(' key-a, key-b\nkey-c ,, '), ['key-a', 'key-b', 'key-c'])
+    assert.deepEqual(parseInboundApiKeys(''), [])
+    assert.deepEqual(parseInboundApiKeys(null), [])
+  })
+
+  it('prefers MODELFOUNDRY_INBOUND_API_KEYS and falls back to MODELRELAY_INBOUND_API_KEYS', () => {
+    withEnv({ MODELFOUNDRY_INBOUND_API_KEYS: 'mf-key', MODELRELAY_INBOUND_API_KEYS: 'legacy-key' }, () => {
+      assert.deepEqual(getConfiguredInboundApiKeys(), ['mf-key'])
+    })
+    withEnv({ MODELFOUNDRY_INBOUND_API_KEYS: null, MODELRELAY_INBOUND_API_KEYS: 'legacy-key' }, () => {
+      assert.deepEqual(getConfiguredInboundApiKeys(), ['legacy-key'])
+    })
+  })
+
+  it('accepts bearer tokens and x-api-key headers for inbound /v1 requests', () => {
+    const keys = ['allowed-key']
+    assert.equal(extractInboundApiCredential({ authorization: 'Bearer allowed-key' }), 'allowed-key')
+    assert.equal(extractInboundApiCredential({ Authorization: 'Bearer allowed-key' }), 'allowed-key')
+    assert.equal(extractInboundApiCredential({ 'x-api-key': 'allowed-key' }), 'allowed-key')
+    assert.equal(isInboundApiRequestAuthorized({ authorization: 'Bearer allowed-key' }, keys), true)
+    assert.equal(isInboundApiRequestAuthorized({ 'x-api-key': 'allowed-key' }, keys), true)
+    assert.equal(isInboundApiRequestAuthorized({ authorization: 'Bearer wrong-key' }, keys), false)
+    assert.equal(isInboundApiRequestAuthorized({}, keys), false)
+  })
+
+  it('leaves inbound /v1 auth disabled when no keys are configured', () => {
+    assert.equal(isInboundApiRequestAuthorized({}, []), true)
+  })
+})
+
 
 describe('provider api key resolution', () => {
   it('does not resolve the removed Qwen Code provider from env vars', () => {
@@ -1684,16 +1717,18 @@ describe('onboard integrations', () => {
   })
 
   it('applies Hermes Proxy preset to onboarding config without requiring a real API key', () => {
-    const config = { apiKeys: {}, providers: {} }
-    const instanceKey = applyHermesProxyEndpointPreset(config)
+    withEnv({ MODELFOUNDRY_HERMES_PROXY_BASE_URL: null }, () => {
+      const config = { apiKeys: {}, providers: {} }
+      const instanceKey = applyHermesProxyEndpointPreset(config)
 
-    assert.equal(instanceKey, 'openai-compatible:hermes-proxy')
-    assert.equal(config.apiKeys[instanceKey], 'unused')
-    assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
-    assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8645/v1')
-    assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
-    assert.equal(config.providers[instanceKey].enabled, true)
-    assert.equal('discoverModels' in config.providers[instanceKey], false)
+      assert.equal(instanceKey, 'openai-compatible:hermes-proxy')
+      assert.equal(config.apiKeys[instanceKey], 'unused')
+      assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
+      assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8645/v1')
+      assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
+      assert.equal(config.providers[instanceKey].enabled, true)
+      assert.equal('discoverModels' in config.providers[instanceKey], false)
+    })
   })
 })
 
@@ -2248,16 +2283,18 @@ describe('OpenAI-compatible multi-instance support', () => {
   })
 
   it('builds a Hermes Proxy endpoint preset with generic OpenAI-compatible defaults', () => {
-    const preset = buildHermesProxyEndpointPreset()
+    withEnv({ MODELFOUNDRY_HERMES_PROXY_BASE_URL: null }, () => {
+      const preset = buildHermesProxyEndpointPreset()
 
-    assert.deepEqual(preset, {
-      id: 'hermes-proxy',
-      name: 'Hermes Proxy',
-      baseUrl: 'http://127.0.0.1:8645/v1',
-      modelId: 'gpt-5.5',
-      apiKey: 'unused',
-      enabled: true,
-      discoverModels: true,
+      assert.deepEqual(preset, {
+        id: 'hermes-proxy',
+        name: 'Hermes Proxy',
+        baseUrl: 'http://127.0.0.1:8645/v1',
+        modelId: 'gpt-5.5',
+        apiKey: 'unused',
+        enabled: true,
+        discoverModels: true,
+      })
     })
   })
 
@@ -2284,24 +2321,26 @@ describe('OpenAI-compatible multi-instance support', () => {
   })
 
   it('upserts the Hermes Proxy preset as a stable OpenAI-compatible endpoint', () => {
-    const config = { apiKeys: {}, providers: {} }
-    const instanceKey = upsertOpenAICompatibleEndpoint(config, buildHermesProxyEndpointPreset())
+    withEnv({ MODELFOUNDRY_HERMES_PROXY_BASE_URL: null }, () => {
+      const config = { apiKeys: {}, providers: {} }
+      const instanceKey = upsertOpenAICompatibleEndpoint(config, buildHermesProxyEndpointPreset())
 
-    assert.equal(instanceKey, 'openai-compatible:hermes-proxy')
-    assert.equal(config.apiKeys[instanceKey], 'unused')
-    assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
-    assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8645/v1')
-    assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
-    assert.equal('discoverModels' in config.providers[instanceKey], false)
+      assert.equal(instanceKey, 'openai-compatible:hermes-proxy')
+      assert.equal(config.apiKeys[instanceKey], 'unused')
+      assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
+      assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8645/v1')
+      assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
+      assert.equal('discoverModels' in config.providers[instanceKey], false)
 
-    const [endpoint] = listOpenAICompatibleEndpoints(config)
-    assert.equal(endpoint.instanceKey, 'openai-compatible:hermes-proxy')
-    assert.equal(endpoint.id, 'hermes-proxy')
-    assert.equal(endpoint.name, 'Hermes Proxy')
-    assert.equal(endpoint.baseUrl, 'http://127.0.0.1:8645/v1')
-    assert.equal(endpoint.modelId, 'gpt-5.5')
-    assert.equal(endpoint.apiKey, 'unused')
-    assert.equal(endpoint.discoverModels, true)
+      const [endpoint] = listOpenAICompatibleEndpoints(config)
+      assert.equal(endpoint.instanceKey, 'openai-compatible:hermes-proxy')
+      assert.equal(endpoint.id, 'hermes-proxy')
+      assert.equal(endpoint.name, 'Hermes Proxy')
+      assert.equal(endpoint.baseUrl, 'http://127.0.0.1:8645/v1')
+      assert.equal(endpoint.modelId, 'gpt-5.5')
+      assert.equal(endpoint.apiKey, 'unused')
+      assert.equal(endpoint.discoverModels, true)
+    })
   })
 
   it('config export/import preserves multi-instance shape', () => {

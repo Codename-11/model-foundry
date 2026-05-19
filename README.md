@@ -173,6 +173,28 @@ modelrelay config export | modelrelay config import
 
 ## Endpoints
 
+### API authentication
+
+`/v1/*` routes support optional inbound API-key auth via:
+
+```env
+MODELFOUNDRY_INBOUND_API_KEYS=YOUR_MODELFOUNDRY_KEY,OPTIONAL_SECOND_KEY
+```
+
+When one or more keys are configured, clients must send either:
+
+```http
+Authorization: Bearer YOUR_MODELFOUNDRY_KEY
+```
+
+or:
+
+```http
+X-API-Key: YOUR_MODELFOUNDRY_KEY
+```
+
+If no inbound keys are configured, `/v1/*` remains unauthenticated for purely local/dev installs. Do not bind or expose ModelFoundry beyond localhost without setting `MODELFOUNDRY_INBOUND_API_KEYS`.
+
 ### `/v1/chat/completions`
 
 `POST /v1/chat/completions` is an OpenAI-compatible chat completions endpoint.
