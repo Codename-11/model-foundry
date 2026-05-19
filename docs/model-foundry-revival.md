@@ -57,3 +57,30 @@ Use upstream's existing `openai-compatible:<id>` multi-endpoint support and `/v1
 - Chat smoke with requested `gpt-5.5`: `HERMES_PROXY_BASE_URL=http://127.0.0.1:8648/v1 HERMES_PROXY_SMOKE_CHAT=1 HERMES_PROXY_SMOKE_MODEL=gpt-5.5 node scripts/smoke-hermes-proxy.mjs` — failed with HTTP 403 because the local proxy did not advertise `gpt-5.5` during validation.
 - Chat smoke with discovered model: `HERMES_PROXY_BASE_URL=http://127.0.0.1:8648/v1 HERMES_PROXY_SMOKE_CHAT=1 HERMES_PROXY_SMOKE_MODEL=grok-4.3 node scripts/smoke-hermes-proxy.mjs` — passed with HTTP 200 and response `ok`.
 - ModelFoundry local app/API smoke: started `node bin/modelrelay.js --port 17352 --no-log` with isolated `HOME=/tmp/model-foundry-smoke-home`; `POST /api/openai-compatible/endpoints/presets/hermes-proxy` returned success; `GET /api/config` showed `openai-compatible:hermes-proxy` with base URL `http://127.0.0.1:8645/v1`, model `gpt-5.5`, and discovery enabled. The temporary smoke server was stopped after validation.
+
+## Branch Summary
+
+Branch `revive/hermes-proxy` is based on upstream `ellipticmarketing/modelrelay/master` at `081e9a8`. It adds seven fork commits:
+
+1. `40fb911` — document the upstream-based ModelFoundry revival strategy.
+2. `2b39fa7` — add light ModelFoundry fork branding without package/binary renames.
+3. `7920397` — add the Hermes Proxy endpoint preset helper and tests.
+4. `cfc3f33` — expose the preset through server API, dashboard UI, and onboarding.
+5. `6292e1e` — add the Hermes Proxy smoke script and integration docs.
+6. `7a976c1` — record local Hermes Proxy integration validation.
+7. final recommendation commit — add the deploy/no-deploy recommendation.
+
+## Risks and Known Gaps
+
+- The preset intentionally uses the requested/public local default `http://127.0.0.1:8645/v1`, but Docker-Server's live Hermes OAuth Router was on `http://127.0.0.1:8648/v1` during validation. Port 8645 was a Hermes webhook/API service and returned 404 for `/v1/models`.
+- Local Hermes Proxy advertised `grok-4.3`, `grok-4.20-reasoning`, `gpt-5.4`, `gpt-5.4-mini`, and `gpt-5.3-codex`; it did not advertise `gpt-5.5` during validation. Chat smoke passed with `grok-4.3` and failed with `gpt-5.5`/`gpt-5.4-mini` at HTTP 403.
+- The Vite dashboard migration from the stale fork remains intentionally deferred.
+- ModelFoundry/modelrelay remains a lightweight local router/dashboard. It does not provide the team/key/quota/cost governance expected from a production central gateway.
+
+## Recommendation
+
+Keep this branch parked as the revived ModelFoundry base and deploy it only as a local lab router after choosing the canonical Hermes Proxy port for Docker-Server. Do not make ModelFoundry the central common endpoint/control plane for all apps. If the goal is a durable internal OpenRouter-style gateway with shared keys, teams, budgets, routing policy, and observability, evaluate LiteLLM as the production endpoint layer and keep ModelFoundry for model discovery, experimentation, and dashboard-style scouting.
+
+## Next Action
+
+Push `revive/hermes-proxy` to `Codename-11/model-foundry`, then decide whether to open a PR or keep the branch as an implementation snapshot. If deploying locally, either run Hermes Proxy on `8645` to match the preset or edit the endpoint to `8648` in the ModelFoundry UI/config.
