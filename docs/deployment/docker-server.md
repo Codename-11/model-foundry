@@ -54,7 +54,9 @@ Verified on Docker-Server on 2026-05-19 from `Codename-11/model-foundry` `master
 - Stack path: `~/docker/modelfoundry/`
 - Source checkout: `~/model-foundry`
 - Public binding: `127.0.0.1:7352->7352`
-- ModelFoundry base URL: `http://127.0.0.1:7352/v1`
+- Browser UI URL: `https://modelfoundry.axiom-labs.dev/` behind Authelia (`chain-authelia`).
+- Local app/API base URL: `http://127.0.0.1:7352/v1`.
+- Public `/v1/*` requests through `modelfoundry.axiom-labs.dev` are intentionally intercepted by Authelia and are not a machine-client endpoint.
 - Hermes upstream from the container: `http://host.docker.internal:8648/v1`
 - Persistent config: `~/docker/modelfoundry/config/.modelrelay.json`
 
@@ -73,4 +75,19 @@ Hardening decision:
 - Alias policy is needed before broad internal use. During smoke, `auto-fastest` was able to select a non-Hermes free provider, so apps that require Hermes should use explicit model IDs until stable aliases such as `default`, `fast`, `reasoning`, `coding`, and `hermes` exist.
 - Log redaction or log-disable controls are needed before sensitive workloads. Request logs are local and mode `0600`, but `.modelrelay-logs.json` stores request messages and response metadata.
 
-Keep the service bound to localhost unless inbound auth, alias policy, and logging/redaction policy are explicitly added.
+Keep the direct app/API endpoint bound to localhost unless inbound API-key auth, alias policy, and logging/redaction policy are explicitly added. The Authelia route is for interactive browser UI access only.
+
+## Authelia UI Route
+
+The live Docker-Server deployment attaches the container to the external `traefik_proxy` network while retaining the localhost-only host port. Traefik reaches the app as `http://modelfoundry:7352`, and the dynamic file-provider route lives at:
+
+```text
+~/docker/1. traefik3-authelia/rules/app-modelfoundry.yaml
+```
+
+Route policy:
+
+- Host: `modelfoundry.axiom-labs.dev`
+- Middleware chain: `chain-authelia`
+- Purpose: browser UI only
+- Machine clients: use `http://127.0.0.1:7352/v1` from Docker-Server, an SSH/Tailscale tunnel, or wait for first-party `/v1` bearer auth before exposing a LAN endpoint.

@@ -15,3 +15,10 @@ services:
       MODELFOUNDRY_HERMES_PROXY_BASE_URL: ${MODELFOUNDRY_HERMES_PROXY_BASE_URL:-http://host.docker.internal:8648/v1}
     volumes:
       - ./config:/config
+    networks:
+      - default
+      - traefik_proxy
+
+networks:
+  traefik_proxy:
+    external: true
