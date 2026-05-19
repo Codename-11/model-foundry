@@ -4,6 +4,7 @@ services:
       context: ./src
     container_name: modelfoundry
     restart: unless-stopped
+    user: "${MODELFOUNDRY_UID:-1000}:${MODELFOUNDRY_GID:-1000}"
     ports:
       - "127.0.0.1:${MODELFOUNDRY_PORT:-7352}:7352"
     extra_hosts:

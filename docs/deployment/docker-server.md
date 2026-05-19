@@ -23,9 +23,13 @@ Use `deploy/.env.example` as the starting `.env`:
 ```env
 MODELFOUNDRY_PORT=7352
 MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://host.docker.internal:8648/v1
+MODELFOUNDRY_UID=1000
+MODELFOUNDRY_GID=1000
 ```
 
 The Hermes Proxy URL is the Docker-reachable raw model endpoint. On Docker-Server, `8648` is the verified OpenAI-compatible model endpoint; `8645` answered `/health` during validation but did not serve `/v1/models`.
+
+Set `MODELFOUNDRY_UID` and `MODELFOUNDRY_GID` to the host user that owns `~/docker/modelfoundry/config` so `.modelrelay.json` remains readable and manageable from the host.
 
 ## Smoke Tests
 
