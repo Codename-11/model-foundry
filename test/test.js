@@ -5,7 +5,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 
-import { sources, MODELS, canonicalizeModelId, getPreferredModelLabel } from '../sources.js'
+import { sources, MODELS, canonicalizeModelId, getPreferredModelContext, getPreferredModelLabel, getScore, resolveAliasedModelId } from '../sources.js'
 import {
   getAvg,
   getVerdict,
@@ -13,19 +13,21 @@ import {
   sortResults,
   findBestModel,
   rankModelsForRouting,
+  getRoutingModelKey,
   buildModelGroups,
   filterModelsByRequested,
   isRetryableProxyStatus,
   parseArgs,
   parseOpenRouterKeyRateLimit,
+  selectNextApiKeyFromPool,
   VERDICT_ORDER,
 } from '../lib/utils.js'
-import { buildOpenClawProviderConfig } from '../lib/onboard.js'
+import { applyHermesProxyEndpointPreset, buildOpenClawProviderConfig } from '../lib/onboard.js'
+import { normalizeMissingScoreId } from '../lib/score-fetcher.js'
 import { resolveAutostartExecPath, resolveAutostartNodePath } from '../lib/autostart.js'
-import { exportConfigToken, getApiKey, getPinningMode, getProviderBaseUrl, getProviderModelId, getProviderPingIntervalMs, importConfigToken } from '../lib/config.js'
+import { exportConfigToken, getApiKey, getApiKeyPool, getMaxTurns, getPinningMode, getProviderBaseUrl, getProviderModelId, getProviderPingIntervalMs, hasMultipleKeys, importConfigToken, normalizeConfigShape, isOpenAICompatibleInstanceKey, getBaseProviderKey, getOpenAICompatibleInstanceId, buildOpenAICompatibleInstanceKey, buildHermesProxyEndpointPreset, listOpenAICompatibleEndpoints, upsertOpenAICompatibleEndpoint, removeOpenAICompatibleEndpoint } from '../lib/config.js'
 import { buildNpmInstallInvocation, buildWindowsPostUpdateRestartCommand, getForcedUpdateVersion, getLocalUpdateTarballPath, getLocalUpdateVersion, isRunningFromSource, shouldStopAutostartBeforeUpdate } from '../lib/update.js'
-import { isQwenOauthAccessTokenValid, pollQwenOauthDeviceToken, resolveQwenCodeOauthAccessToken, startQwenOauthDeviceLogin } from '../lib/qwencodeAuth.js'
-import { buildOpencodeHeaders, buildOpencodeProjectId, buildProviderRequestHeaders, getPinnedModelCandidate, getPinnedModelMatches, isProviderAuthOptional, isProviderBearerAuthEnabled, providerWantsBearerAuth, shouldRetryOptionalProviderWithBearer, toOpenCodeModelMeta, toOpenRouterModelMeta, toKiloCodeModelMeta } from '../lib/server.js'
+import { buildKiroRequestPayload, buildKiroSocialLoginUrl, buildOpencodeHeaders, buildOpencodeProjectId, buildProviderRequestBody, buildProviderRequestHeaders, exchangeKiroSocialAuthFlow, exchangeKiroSocialCode, extractKiroEmailFromAccessToken, extractOllamaModelRecords, extractOpenAICompatibleModelRecords, buildOpenAICompatibleModelsListUrl, getAccountStatus, getKiroRefreshToken, hasKiroAuthConfigured, getPinnedModelCandidate, getPinnedModelMatches, isProviderAuthOptional, isProviderBearerAuthEnabled, parseKiroEventFrame, pollKiroBuilderIdToken, providerWantsBearerAuth, resolveKiroOAuthAccessToken, shouldRetryOptionalProviderWithBearer, startKiroBuilderIdDeviceAuth, startKiroSocialAuthFlow, toOllamaModelMeta, toOpenAICompatibleDiscoveredModelMeta, toOpenCodeModelMeta, toOpenRouterModelMeta, toKiloCodeModelMeta, transformKiroResponse } from '../lib/server.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
 
@@ -62,18 +64,75 @@ function withEnv(overrides, fn) {
   }
 }
 
+const TEST_CRC32_TABLE = new Uint32Array(256)
+for (let i = 0; i < 256; i++) {
+  let c = i
+  for (let j = 0; j < 8; j++) {
+    c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+  }
+  TEST_CRC32_TABLE[i] = c >>> 0
+}
+
+function crc32(buf) {
+  let crc = 0xffffffff
+  for (let i = 0; i < buf.length; i++) {
+    crc = TEST_CRC32_TABLE[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8)
+  }
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+function encodeKiroFrame(headers, payload) {
+  const encoder = new TextEncoder()
+  const encodedHeaders = Object.entries(headers).map(([name, value]) => ({
+    nameBytes: encoder.encode(name),
+    valueBytes: encoder.encode(String(value)),
+  }))
+  const headersLength = encodedHeaders.reduce((sum, header) => sum + 1 + header.nameBytes.length + 1 + 2 + header.valueBytes.length, 0)
+  const payloadBytes = encoder.encode(payload == null ? '' : JSON.stringify(payload))
+  const totalLength = 12 + headersLength + payloadBytes.length + 4
+  const frame = new Uint8Array(totalLength)
+  const view = new DataView(frame.buffer)
+
+  view.setUint32(0, totalLength, false)
+  view.setUint32(4, headersLength, false)
+  view.setUint32(8, crc32(frame.slice(0, 8)), false)
+
+  let offset = 12
+  for (const { nameBytes, valueBytes } of encodedHeaders) {
+    frame[offset] = nameBytes.length
+    offset += 1
+    frame.set(nameBytes, offset)
+    offset += nameBytes.length
+    frame[offset] = 7
+    offset += 1
+    frame[offset] = (valueBytes.length >> 8) & 0xff
+    frame[offset + 1] = valueBytes.length & 0xff
+    offset += 2
+    frame.set(valueBytes, offset)
+    offset += valueBytes.length
+  }
+  frame.set(payloadBytes, offset)
+
+  view.setUint32(totalLength - 4, crc32(frame.slice(0, totalLength - 4)), false)
+  return frame
+}
+
+function encodeKiroEventFrame(eventType, payload) {
+  return encodeKiroFrame({ ':event-type': eventType }, payload)
+}
+
 describe('config helpers', () => {
   it('resolves provider-specific ping intervals', () => {
     const config = {
       providers: {
         nvidia: { pingIntervalMinutes: 5 },
-        qwencode: { pingIntervalMinutes: '10' },
+        kilocode: { pingIntervalMinutes: '10' },
         openrouter: { pingIntervalMinutes: 0 }, // invalid
       }
     }
 
     assert.equal(getProviderPingIntervalMs(config, 'nvidia'), 5 * 60_000)
-    assert.equal(getProviderPingIntervalMs(config, 'qwencode'), 10 * 60_000)
+    assert.equal(getProviderPingIntervalMs(config, 'kilocode'), 10 * 60_000)
     assert.equal(getProviderPingIntervalMs(config, 'openrouter'), 30 * 60_000) // default
     assert.equal(getProviderPingIntervalMs(config, 'missing'), 30 * 60_000) // default
     assert.equal(getPinningMode(config), 'canonical')
@@ -105,19 +164,16 @@ describe('config helpers', () => {
   })
 
   it('imports legacy plain-base64 config payloads', () => {
-    const json = JSON.stringify({ apiKeys: { qwencode: 'abc' }, providers: {} })
+    const json = JSON.stringify({ apiKeys: { kilocode: 'abc' }, providers: {} })
     const plainBase64 = Buffer.from(json, 'utf8').toString('base64')
     const imported = importConfigToken(plainBase64)
-    assert.equal(imported.apiKeys.qwencode, 'abc')
+    assert.equal(imported.apiKeys.kilocode, 'abc')
   })
 })
 
 describe('sources data integrity', () => {
-  it('includes Qwen Code provider', () => {
-    assert.ok(sources.qwencode)
-    assert.equal(sources.qwencode.name, 'Qwen Code')
-    assert.ok(Array.isArray(sources.qwencode.models))
-    assert.ok(sources.qwencode.models.length > 0)
+  it('does not include the removed Qwen Code provider', () => {
+    assert.equal('qwencode' in sources, false)
   })
 
   it('includes OpenAI-compatible provider', () => {
@@ -126,10 +182,22 @@ describe('sources data integrity', () => {
     assert.ok(Array.isArray(sources['openai-compatible'].models))
   })
 
+  it('includes Ollama provider', () => {
+    assert.ok(sources.ollama)
+    assert.equal(sources.ollama.name, 'Ollama')
+    assert.ok(Array.isArray(sources.ollama.models))
+  })
+
   it('includes OpenCode Zen provider', () => {
     assert.ok(sources.opencode)
     assert.equal(sources.opencode.name, 'OpenCode Zen')
     assert.ok(Array.isArray(sources.opencode.models))
+  })
+
+  it('includes Kiro provider', () => {
+    assert.ok(sources.kiro)
+    assert.equal(sources.kiro.name, 'Kiro')
+    assert.ok(Array.isArray(sources.kiro.models))
   })
 
   it('has expected provider structure', () => {
@@ -179,7 +247,7 @@ describe('sources data integrity', () => {
 })
 
 describe('provider api key resolution', () => {
-  it('supports Qwen Code provider env var and DashScope fallback', () => {
+  it('does not resolve the removed Qwen Code provider from env vars', () => {
     const originalQwen = process.env.QWEN_CODE_API_KEY
     const originalDashScope = process.env.DASHSCOPE_API_KEY
 
@@ -189,10 +257,10 @@ describe('provider api key resolution', () => {
       assert.equal(getApiKey({ apiKeys: {} }, 'qwencode'), null)
 
       process.env.DASHSCOPE_API_KEY = 'dashscope-key'
-      assert.equal(getApiKey({ apiKeys: {} }, 'qwencode'), 'dashscope-key')
+      assert.equal(getApiKey({ apiKeys: {} }, 'qwencode'), null)
 
       process.env.QWEN_CODE_API_KEY = 'qwen-code-key'
-      assert.equal(getApiKey({ apiKeys: {} }, 'qwencode'), 'qwen-code-key')
+      assert.equal(getApiKey({ apiKeys: {} }, 'qwencode'), null)
     } finally {
       if (originalQwen == null) delete process.env.QWEN_CODE_API_KEY
       else process.env.QWEN_CODE_API_KEY = originalQwen
@@ -257,6 +325,56 @@ describe('provider api key resolution', () => {
     }
   })
 
+  it('supports Ollama provider env vars for key, base URL, and model', () => {
+    const originalKey = process.env.OLLAMA_API_KEY
+    const originalBaseUrl = process.env.OLLAMA_BASE_URL
+    const originalModel = process.env.OLLAMA_MODEL
+
+    try {
+      delete process.env.OLLAMA_API_KEY
+      delete process.env.OLLAMA_BASE_URL
+      delete process.env.OLLAMA_MODEL
+
+      const config = {
+        apiKeys: { ollama: 'config-key' },
+        providers: { ollama: { baseUrl: 'https://ollama.com/v1', modelId: 'gpt-oss:120b' } },
+      }
+
+      assert.equal(getApiKey(config, 'ollama'), 'config-key')
+      assert.equal(getProviderBaseUrl(config, 'ollama'), 'https://ollama.com/v1')
+      assert.equal(getProviderModelId(config, 'ollama'), 'gpt-oss:120b')
+
+      process.env.OLLAMA_API_KEY = 'env-key'
+      process.env.OLLAMA_BASE_URL = 'https://ollama.com/v1'
+      process.env.OLLAMA_MODEL = 'llama3.3'
+
+      assert.equal(getApiKey(config, 'ollama'), 'env-key')
+      assert.equal(getProviderBaseUrl(config, 'ollama'), 'https://ollama.com/v1')
+      assert.equal(getProviderModelId(config, 'ollama'), 'llama3.3')
+    } finally {
+      if (originalKey == null) delete process.env.OLLAMA_API_KEY
+      else process.env.OLLAMA_API_KEY = originalKey
+
+      if (originalBaseUrl == null) delete process.env.OLLAMA_BASE_URL
+      else process.env.OLLAMA_BASE_URL = originalBaseUrl
+
+      if (originalModel == null) delete process.env.OLLAMA_MODEL
+      else process.env.OLLAMA_MODEL = originalModel
+    }
+  })
+
+  it('uses Ollama cloud base URL when none is configured', () => {
+    const originalBaseUrl = process.env.OLLAMA_BASE_URL
+
+    try {
+      delete process.env.OLLAMA_BASE_URL
+      assert.equal(getProviderBaseUrl({ providers: { ollama: {} } }, 'ollama'), null)
+    } finally {
+      if (originalBaseUrl == null) delete process.env.OLLAMA_BASE_URL
+      else process.env.OLLAMA_BASE_URL = originalBaseUrl
+    }
+  })
+
   it('supports OpenCode provider env var override', () => {
     const original = process.env.OPENCODE_API_KEY
 
@@ -273,19 +391,328 @@ describe('provider api key resolution', () => {
     }
   })
 
-  it('treats OpenCode and KiloCode auth as optional bearer auth providers', () => {
+  it('resolves Kiro OAuth refresh token from env and config', () => {
+    const original = process.env.KIRO_REFRESH_TOKEN
+
+    try {
+      delete process.env.KIRO_REFRESH_TOKEN
+      assert.equal(getKiroRefreshToken({ providers: {} }), null)
+      assert.equal(getKiroRefreshToken({ providers: { kiro: { refreshToken: 'config-refresh-token' } } }), 'config-refresh-token')
+
+      process.env.KIRO_REFRESH_TOKEN = 'env-refresh-token'
+      assert.equal(getKiroRefreshToken({ providers: { kiro: { refreshToken: 'config-refresh-token' } } }), 'env-refresh-token')
+    } finally {
+      if (original === undefined) delete process.env.KIRO_REFRESH_TOKEN
+      else process.env.KIRO_REFRESH_TOKEN = original
+    }
+  })
+
+  it('reports Kiro auth configured when OAuth refresh token is present', () => {
+    assert.equal(hasKiroAuthConfigured({ providers: {} }), false)
+    assert.equal(hasKiroAuthConfigured({ providers: { kiro: { refreshToken: 'rtok' } } }), true)
+  })
+
+  it('refreshes Kiro OAuth access tokens from the Kiro refresh endpoint', async () => {
+    const originalRefreshToken = process.env.KIRO_REFRESH_TOKEN
+    const originalClientId = process.env.KIRO_OAUTH_CLIENT_ID
+    const originalClientSecret = process.env.KIRO_OAUTH_CLIENT_SECRET
+    const originalFetch = globalThis.fetch
+    const refreshToken = 'aorAAAAAG-test-refresh-token'
+
+    process.env.KIRO_REFRESH_TOKEN = refreshToken
+    delete process.env.KIRO_OAUTH_CLIENT_ID
+    delete process.env.KIRO_OAUTH_CLIENT_SECRET
+
+    let callCount = 0
+    globalThis.fetch = async (url, init) => {
+      callCount += 1
+      assert.equal(String(url), 'https://prod.us-east-1.auth.desktop.kiro.dev/refreshToken')
+      assert.equal(init?.method, 'POST')
+      assert.equal(init?.headers?.['Content-Type'], 'application/json')
+      const body = JSON.parse(String(init?.body || '{}'))
+      assert.equal(body.refreshToken, refreshToken)
+      return new Response(JSON.stringify({
+        accessToken: 'oauth-access-token',
+        refreshToken,
+        expiresIn: 3600,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+
+    try {
+      const tokenA = await resolveKiroOAuthAccessToken({ providers: {} })
+      const tokenB = await resolveKiroOAuthAccessToken({ providers: {} })
+      assert.equal(tokenA, 'oauth-access-token')
+      assert.equal(tokenB, 'oauth-access-token')
+      assert.equal(callCount, 1)
+    } finally {
+      globalThis.fetch = originalFetch
+      if (originalRefreshToken === undefined) delete process.env.KIRO_REFRESH_TOKEN
+      else process.env.KIRO_REFRESH_TOKEN = originalRefreshToken
+      if (originalClientId === undefined) delete process.env.KIRO_OAUTH_CLIENT_ID
+      else process.env.KIRO_OAUTH_CLIENT_ID = originalClientId
+      if (originalClientSecret === undefined) delete process.env.KIRO_OAUTH_CLIENT_SECRET
+      else process.env.KIRO_OAUTH_CLIENT_SECRET = originalClientSecret
+    }
+  })
+
+  it('uses rotated refresh token for subsequent cache-miss refreshes', async () => {
+    const originalRefreshToken = process.env.KIRO_REFRESH_TOKEN
+    const originalClientId = process.env.KIRO_OAUTH_CLIENT_ID
+    const originalClientSecret = process.env.KIRO_OAUTH_CLIENT_SECRET
+    const originalFetch = globalThis.fetch
+    const initialToken = 'aorAAAAAG-initial-refresh-token'
+    const rotatedToken = 'aorAAAAAG-rotated-refresh-token'
+
+    process.env.KIRO_REFRESH_TOKEN = initialToken
+    delete process.env.KIRO_OAUTH_CLIENT_ID
+    delete process.env.KIRO_OAUTH_CLIENT_SECRET
+
+    let callCount = 0
+    const tokensReceived = []
+    // expiresIn: 1 puts the expiry inside the 60-second skew window so the cache immediately misses on the next call
+    globalThis.fetch = async (url, init) => {
+      callCount += 1
+      const body = JSON.parse(String(init?.body || '{}'))
+      tokensReceived.push(body.refreshToken)
+      return new Response(JSON.stringify({
+        accessToken: `oauth-access-token-${callCount}`,
+        refreshToken: rotatedToken,
+        expiresIn: 1,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+
+    try {
+      // First call: cache miss → fetch with initialToken → response includes rotatedToken
+      const tokenA = await resolveKiroOAuthAccessToken({ providers: {} })
+      assert.equal(tokenA, 'oauth-access-token-1')
+      assert.equal(tokensReceived[0], initialToken)
+      assert.equal(callCount, 1)
+
+      // Second call: cache is expired (expiresIn:1 < skew), but sourceRefreshToken matches
+      // so effectiveRefreshToken should be the rotated token, not the original
+      const tokenB = await resolveKiroOAuthAccessToken({ providers: {} })
+      assert.equal(tokenB, 'oauth-access-token-2')
+      assert.equal(tokensReceived[1], rotatedToken)
+      assert.equal(callCount, 2)
+    } finally {
+      globalThis.fetch = originalFetch
+      if (originalRefreshToken === undefined) delete process.env.KIRO_REFRESH_TOKEN
+      else process.env.KIRO_REFRESH_TOKEN = originalRefreshToken
+      if (originalClientId === undefined) delete process.env.KIRO_OAUTH_CLIENT_ID
+      else process.env.KIRO_OAUTH_CLIENT_ID = originalClientId
+      if (originalClientSecret === undefined) delete process.env.KIRO_OAUTH_CLIENT_SECRET
+      else process.env.KIRO_OAUTH_CLIENT_SECRET = originalClientSecret
+    }
+  })
+
+  it('builds Kiro browser OAuth URLs for Google and GitHub', () => {
+    const googleUrl = new URL(buildKiroSocialLoginUrl('google', 'challenge-google', 'state-google'))
+    assert.equal(`${googleUrl.origin}${googleUrl.pathname}`, 'https://prod.us-east-1.auth.desktop.kiro.dev/login')
+    assert.equal(googleUrl.searchParams.get('idp'), 'Google')
+    assert.equal(googleUrl.searchParams.get('code_challenge'), 'challenge-google')
+    assert.equal(googleUrl.searchParams.get('code_challenge_method'), 'S256')
+    assert.equal(googleUrl.searchParams.get('state'), 'state-google')
+    assert.equal(googleUrl.searchParams.get('redirect_uri'), 'kiro://kiro.kiroAgent/authenticate-success')
+
+    const githubUrl = new URL(buildKiroSocialLoginUrl('github', 'challenge-github', 'state-github'))
+    assert.equal(githubUrl.searchParams.get('idp'), 'Github')
+  })
+
+  it('exchanges Kiro browser OAuth codes for tokens', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async (url, init) => {
+      assert.equal(String(url), 'https://prod.us-east-1.auth.desktop.kiro.dev/oauth/token')
+      assert.equal(init?.method, 'POST')
+      assert.equal(init?.headers?.['Content-Type'], 'application/json')
+      const body = JSON.parse(String(init?.body || '{}'))
+      assert.equal(body.code, 'browser-code')
+      assert.equal(body.code_verifier, 'browser-verifier')
+      assert.equal(body.redirect_uri, 'kiro://kiro.kiroAgent/authenticate-success')
+      return new Response(JSON.stringify({
+        accessToken: 'access.jwt.token',
+        refreshToken: 'aorAAAAAG-browser-refresh',
+        profileArn: 'arn:aws:builder-profile',
+        expiresIn: 1800,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+
+    try {
+      const tokenData = await exchangeKiroSocialCode('browser-code', 'browser-verifier')
+      assert.deepEqual(tokenData, {
+        accessToken: 'access.jwt.token',
+        refreshToken: 'aorAAAAAG-browser-refresh',
+        profileArn: 'arn:aws:builder-profile',
+        expiresIn: 1800,
+      })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('keeps Kiro browser OAuth PKCE verifier server-side during exchange', async () => {
+    const flow = startKiroSocialAuthFlow('google')
+    assert.match(flow.flowId, /^[0-9a-f-]{36}$/)
+    assert.equal(flow.codeVerifier, undefined)
+    assert.equal(flow.authUrl.includes('code_challenge='), true)
+    const state = new URL(flow.authUrl).searchParams.get('state')
+
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async (url, init) => {
+      assert.equal(String(url), 'https://prod.us-east-1.auth.desktop.kiro.dev/oauth/token')
+      const body = JSON.parse(String(init?.body || '{}'))
+      assert.equal(body.code, 'browser-code')
+      assert.match(body.code_verifier, /^[A-Fa-f0-9]{64}$/)
+      assert.notEqual(body.code_verifier, 'attacker-controlled-verifier')
+      return new Response(JSON.stringify({
+        accessToken: 'access.jwt.token',
+        refreshToken: 'aorAAAAAG-flow-refresh',
+        expiresIn: 1800,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+
+    try {
+      const tokenData = await exchangeKiroSocialAuthFlow(flow.flowId, 'browser-code', state)
+      assert.equal(tokenData.refreshToken, 'aorAAAAAG-flow-refresh')
+      await assert.rejects(
+        () => exchangeKiroSocialAuthFlow(flow.flowId, 'browser-code', state),
+        /Unknown or expired Kiro browser OAuth flow/
+      )
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('extracts Kiro auth email from JWT access tokens when present', () => {
+    const payload = Buffer.from(JSON.stringify({ email: 'kiro@example.com' }), 'utf8')
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/g, '')
+    const token = `header.${payload}.signature`
+    assert.equal(extractKiroEmailFromAccessToken(token), 'kiro@example.com')
+    assert.equal(extractKiroEmailFromAccessToken('not-a-jwt'), null)
+  })
+
+  it('starts Kiro AWS Builder ID device authorization', async () => {
+    const originalFetch = globalThis.fetch
+    const calls = []
+    globalThis.fetch = async (url, init) => {
+      calls.push({ url: String(url), init })
+      if (String(url) === 'https://oidc.us-east-1.amazonaws.com/client/register') {
+        return new Response(JSON.stringify({
+          clientId: 'builder-client-id',
+          clientSecret: 'builder-client-secret',
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      if (String(url) === 'https://oidc.us-east-1.amazonaws.com/device_authorization') {
+        const body = JSON.parse(String(init?.body || '{}'))
+        assert.equal(body.clientId, 'builder-client-id')
+        assert.equal(body.clientSecret, 'builder-client-secret')
+        assert.equal(body.startUrl, 'https://view.awsapps.com/start')
+        return new Response(JSON.stringify({
+          deviceCode: 'device-code-123',
+          userCode: 'ABCD-EFGH',
+          verificationUri: 'https://device.sso.aws/verify',
+          verificationUriComplete: 'https://device.sso.aws/verify?user_code=ABCD-EFGH',
+          expiresIn: 600,
+          interval: 5,
+        }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    }
+
+    try {
+      const auth = await startKiroBuilderIdDeviceAuth()
+      assert.deepEqual(auth, {
+        clientId: 'builder-client-id',
+        clientSecret: 'builder-client-secret',
+        deviceCode: 'device-code-123',
+        userCode: 'ABCD-EFGH',
+        verificationUri: 'https://device.sso.aws/verify',
+        verificationUriComplete: 'https://device.sso.aws/verify?user_code=ABCD-EFGH',
+        expiresIn: 600,
+        interval: 5,
+      })
+      assert.equal(calls.length, 2)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('polls Kiro AWS Builder ID tokens and surfaces pending status', async () => {
+    const originalFetch = globalThis.fetch
+
+    globalThis.fetch = async () => new Response(JSON.stringify({
+      error: 'authorization_pending',
+      error_description: 'Still waiting for approval',
+    }), { status: 400, headers: { 'Content-Type': 'application/json' } })
+
+    try {
+      const pending = await pollKiroBuilderIdToken('device-code-123', 'builder-client-id', 'builder-client-secret')
+      assert.deepEqual(pending, {
+        success: false,
+        pending: true,
+        error: 'authorization_pending',
+        errorDescription: 'Still waiting for approval',
+      })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('polls Kiro AWS Builder ID tokens and returns refresh credentials on success', async () => {
+    const originalFetch = globalThis.fetch
+    globalThis.fetch = async (url, init) => {
+      assert.equal(String(url), 'https://oidc.us-east-1.amazonaws.com/token')
+      assert.equal(init?.method, 'POST')
+      const body = JSON.parse(String(init?.body || '{}'))
+      assert.equal(body.clientId, 'builder-client-id')
+      assert.equal(body.clientSecret, 'builder-client-secret')
+      assert.equal(body.deviceCode, 'device-code-123')
+      assert.equal(body.grantType, 'urn:ietf:params:oauth:grant-type:device_code')
+      return new Response(JSON.stringify({
+        accessToken: 'builder-access-token',
+        refreshToken: 'aorAAAAAG-builder-refresh',
+        expiresIn: 3600,
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+
+    try {
+      const result = await pollKiroBuilderIdToken('device-code-123', 'builder-client-id', 'builder-client-secret')
+      assert.deepEqual(result, {
+        success: true,
+        tokens: {
+          accessToken: 'builder-access-token',
+          refreshToken: 'aorAAAAAG-builder-refresh',
+          expiresIn: 3600,
+          clientId: 'builder-client-id',
+          clientSecret: 'builder-client-secret',
+        },
+      })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it('treats OpenCode and KiloCode auth as optional bearer auth providers, and local Ollama as optional', () => {
     assert.equal(isProviderAuthOptional({}, 'opencode'), true)
     assert.equal(isProviderAuthOptional({}, 'kilocode'), true)
+    assert.equal(isProviderAuthOptional({}, 'ollama'), false)
+    assert.equal(isProviderAuthOptional({ providers: { ollama: { baseUrl: 'http://127.0.0.1:11434' } } }, 'ollama'), true)
+    assert.equal(isProviderAuthOptional({ providers: { ollama: { baseUrl: 'http://localhost:11434' } } }, 'ollama'), true)
     assert.equal(isProviderAuthOptional({}, 'openrouter'), false)
 
     assert.equal(isProviderBearerAuthEnabled({}, 'opencode'), true)
     assert.equal(isProviderBearerAuthEnabled({}, 'kilocode'), true)
+    assert.equal(isProviderBearerAuthEnabled({}, 'ollama'), true)
     assert.equal(isProviderBearerAuthEnabled({ providers: { opencode: { useBearerAuth: false } } }, 'opencode'), false)
     assert.equal(isProviderBearerAuthEnabled({ providers: { kilocode: { useBearerAuth: false } } }, 'kilocode'), false)
+    assert.equal(isProviderBearerAuthEnabled({ providers: { ollama: { useBearerAuth: false } } }, 'ollama'), true)
 
     assert.equal(providerWantsBearerAuth({}, 'opencode'), true)
     assert.equal(providerWantsBearerAuth({ providers: { opencode: { useBearerAuth: false } } }, 'opencode'), false)
     assert.equal(providerWantsBearerAuth({ providers: { kilocode: { useBearerAuth: false } } }, 'kilocode'), false)
+    assert.equal(providerWantsBearerAuth({ providers: { ollama: { useBearerAuth: false } } }, 'ollama'), true)
     assert.equal(providerWantsBearerAuth({}, 'openrouter'), true)
   })
 
@@ -322,6 +749,138 @@ describe('provider api key resolution', () => {
     assert.equal(headers['x-opencode-client'], 'cli')
   })
 
+  it('adds Kiro SDK headers to provider requests', () => {
+    const headers = buildProviderRequestHeaders('kiro', {
+      apiKey: 'kiro-key',
+    })
+
+    assert.equal(headers['Content-Type'], 'application/json')
+    assert.equal(headers.Accept, 'application/vnd.amazon.eventstream')
+    assert.equal(headers.Authorization, 'Bearer kiro-key')
+    assert.equal(headers['X-Amz-Target'], 'AmazonCodeWhispererStreamingService.GenerateAssistantResponse')
+    assert.equal(headers['User-Agent'], 'AWS-SDK-JS/3.0.0 kiro-ide/1.0.0')
+    assert.equal(headers['X-Amz-User-Agent'], 'aws-sdk-js/3.0.0 kiro-ide/1.0.0')
+  })
+
+  it('translates OpenAI chat payloads into Kiro conversation state', () => {
+    const payload = buildKiroRequestPayload({
+      messages: [
+        { role: 'system', content: 'Keep it short.' },
+        { role: 'user', content: 'Say hi.' },
+      ],
+      max_tokens: 32,
+      temperature: 0.4,
+    }, 'claude-haiku-4.5')
+
+    assert.equal(payload.conversationState.chatTriggerType, 'MANUAL')
+    assert.equal(payload.conversationState.currentMessage.userInputMessage.modelId, 'claude-haiku-4.5')
+    assert.equal(payload.conversationState.currentMessage.userInputMessage.origin, 'AI_EDITOR')
+    assert.match(payload.conversationState.currentMessage.userInputMessage.content, /\[Context: Current time is .*]\n\nSay hi\./)
+    assert.equal(payload.conversationState.history.length, 1)
+    assert.equal(payload.conversationState.history[0].userInputMessage.content, 'Keep it short.')
+    assert.equal(payload.inferenceConfig.maxTokens, 32)
+    assert.equal(payload.inferenceConfig.temperature, 0.4)
+  })
+
+  it('routes provider request body translation through Kiro only', () => {
+    const kiroBody = buildProviderRequestBody('kiro', {
+      model: 'claude-haiku-4.5',
+      messages: [{ role: 'user', content: 'Hello there' }],
+    }, 'claude-haiku-4.5')
+
+    assert.ok(kiroBody.conversationState)
+    assert.equal(kiroBody.model, undefined)
+
+    const passthrough = { model: 'gpt-4o-mini', messages: [{ role: 'user', content: 'Hello' }] }
+    assert.equal(buildProviderRequestBody('openrouter', passthrough, 'gpt-4o-mini'), passthrough)
+  })
+
+  it('parses Kiro AWS EventStream frames', () => {
+    const frame = encodeKiroEventFrame('assistantResponseEvent', { content: 'hello' })
+    const parsed = parseKiroEventFrame(frame)
+
+    assert.equal(parsed.headers[':event-type'], 'assistantResponseEvent')
+    assert.equal(parsed.payload.content, 'hello')
+  })
+
+  it('transforms Kiro EventStream responses into OpenAI JSON responses', async () => {
+    const bytes = Buffer.concat([
+      Buffer.from(encodeKiroEventFrame('assistantResponseEvent', { content: 'Hello' })),
+      Buffer.from(encodeKiroEventFrame('assistantResponseEvent', { content: ' there' })),
+      Buffer.from(encodeKiroEventFrame('metricsEvent', { inputTokens: 11, outputTokens: 3 })),
+      Buffer.from(encodeKiroEventFrame('messageStopEvent', {})),
+    ])
+    const response = new Response(bytes, {
+      status: 200,
+      headers: { 'content-type': 'application/vnd.amazon.eventstream' },
+    })
+
+    const transformed = await transformKiroResponse(response, 'claude-haiku-4.5', false)
+    const data = JSON.parse(await transformed.text())
+
+    assert.equal(transformed.headers.get('content-type'), 'application/json')
+    assert.equal(data.choices[0].message.role, 'assistant')
+    assert.equal(data.choices[0].message.content, 'Hello there')
+    assert.equal(data.usage.prompt_tokens, 11)
+    assert.equal(data.usage.completion_tokens, 3)
+  })
+
+  it('transforms Kiro EventStream exception frames into OpenAI error responses', async () => {
+    const bytes = Buffer.from(encodeKiroFrame({
+      ':message-type': 'exception',
+      ':exception-type': 'ThrottlingException',
+    }, { message: 'Rate exceeded' }))
+    const response = new Response(bytes, {
+      status: 200,
+      headers: { 'content-type': 'application/vnd.amazon.eventstream' },
+    })
+
+    const transformed = await transformKiroResponse(response, 'claude-haiku-4.5', false)
+    const data = JSON.parse(await transformed.text())
+
+    assert.equal(transformed.status, 502)
+    assert.equal(data.error.message, 'Rate exceeded')
+    assert.equal(data.error.type, 'kiro_error')
+    assert.equal(data.error.code, 'ThrottlingException')
+  })
+
+  it('assembles Kiro streaming tool call input.raw fragments into complete arguments', async () => {
+    // Kiro sends toolUseEvent multiple times for the same toolId:
+    // first with {toolUseId, name} announcing the tool, then with {toolUseId, input: {raw: "fragment"}}
+    // carrying partial JSON fragments that must be concatenated.
+    const toolId = 'tool-use-id-123'
+    const bytes = Buffer.concat([
+      Buffer.from(encodeKiroEventFrame('toolUseEvent', { toolUseId: toolId, name: 'exec', input: null })),
+      Buffer.from(encodeKiroEventFrame('toolUseEvent', { toolUseId: toolId, input: { raw: '{"command"' } })),
+      Buffer.from(encodeKiroEventFrame('toolUseEvent', { toolUseId: toolId, input: { raw: ': "echo hi"}' } })),
+      Buffer.from(encodeKiroEventFrame('metricsEvent', { inputTokens: 5, outputTokens: 2 })),
+      Buffer.from(encodeKiroEventFrame('messageStopEvent', {})),
+    ])
+    const response = new Response(bytes, {
+      status: 200,
+      headers: { 'content-type': 'application/vnd.amazon.eventstream' },
+    })
+
+    const transformed = await transformKiroResponse(response, 'claude-haiku-4.5', false)
+    const data = JSON.parse(await transformed.text())
+
+    assert.equal(data.choices[0].finish_reason, 'tool_calls')
+    assert.equal(data.choices[0].message.tool_calls.length, 1)
+    const tc = data.choices[0].message.tool_calls[0]
+    assert.equal(tc.id, toolId)
+    assert.equal(tc.function.name, 'exec')
+    assert.equal(tc.function.arguments, '{"command": "echo hi"}')
+  })
+
+  it('does not add Kiro SDK headers for non-Kiro providers', () => {
+    const headers = buildProviderRequestHeaders('openrouter', {
+      apiKey: 'openrouter-key',
+    })
+
+    assert.equal(headers['User-Agent'], undefined)
+    assert.equal(headers['X-Amz-User-Agent'], undefined)
+  })
+
   it('retries optional providers with bearer auth when an unauthenticated probe is rejected', () => {
     const config = {
       apiKeys: { opencode: 'opencode-key' },
@@ -355,6 +914,143 @@ describe('provider api key resolution', () => {
 })
 
 describe('dynamic model score resolution', () => {
+  it('extracts Ollama model records from tags payloads', () => {
+    const payload = {
+      models: [
+        { name: 'gpt-oss:120b', model: 'gpt-oss:120b' },
+        { name: 'llama3.3', model: 'llama3.3' },
+      ],
+    }
+
+    assert.deepEqual(extractOllamaModelRecords(payload), payload.models)
+    assert.deepEqual(extractOllamaModelRecords(null), [])
+  })
+
+  it('uses scores.js entries for Ollama models when available', () => {
+    const model = toOllamaModelMeta({
+      name: 'openai/gpt-oss-120b',
+      model: 'openai/gpt-oss-120b',
+    })
+
+    assert.ok(model)
+    assert.equal(model.providerKey, 'ollama')
+    assert.equal(model.label, 'GPT OSS 120B')
+    assert.equal(model.isEstimatedScore, false)
+  })
+
+  it('maps Ollama-style aliases like qwen3:4b to existing score entries', () => {
+    assert.equal(resolveAliasedModelId('qwen3:4b'), 'qwen/qwen3-4b')
+    assert.equal(getScore('qwen3:4b'), 0.542)
+
+    const model = toOllamaModelMeta({
+      name: 'qwen3:4b',
+      model: 'qwen3:4b',
+      details: { family: 'qwen3', parameter_size: '4.0B' },
+    })
+
+    assert.ok(model)
+    assert.equal(model.label, 'Qwen3:4b')
+    assert.equal(model.intell, 0.542)
+    assert.equal(model.isEstimatedScore, false)
+  })
+
+  it('maps Devstral Small 2 Ollama IDs to a verified score entry', () => {
+    assert.equal(resolveAliasedModelId('devstral-small-2:24b'), 'devstral-small-2-24b')
+    assert.equal(getScore('devstral-small-2:24b'), 0.658)
+
+    const model = toOllamaModelMeta({
+      name: 'devstral-small-2:24b',
+      model: 'devstral-small-2:24b',
+    })
+
+    assert.ok(model)
+    assert.equal(model.label, 'Devstral Small 2 24B')
+    assert.equal(model.intell, 0.658)
+    assert.equal(model.isEstimatedScore, false)
+  })
+
+  it('maps common Ollama cloud aliases onto existing benchmark entries', () => {
+    assert.equal(getScore('deepseek-v3.2'), 0.731)
+    assert.equal(getScore('cogito-2.1:671b'), 0.42)
+    assert.equal(getScore('gemma3:4b'), 0.428)
+    assert.equal(getScore('glm-5'), 0.778)
+    assert.equal(getScore('kimi-k2.5'), 0.768)
+    assert.equal(getScore('mimo-v2-pro-free'), 0.78)
+    assert.equal(getScore('minimax-m2.5-free'), 0.802)
+    assert.equal(getScore('ministral-3:3b'), 0.548)
+    assert.equal(getScore('ministral-3:8b'), 0.616)
+    assert.equal(getScore('mistral-large-3:675b'), 0.58)
+    assert.equal(getScore('nemotron-3-super'), 0.6047)
+    assert.equal(getScore('qwen/qwen3.6-plus-preview:free'), 0.68)
+    assert.equal(getScore('qwen3-vl:235b'), 0.7)
+    assert.equal(getScore('qwen3-vl:235b-instruct'), 0.7)
+    assert.equal(getScore('qwen3-coder:480b'), 0.706)
+    assert.equal(getScore('qwen3-next:80b'), 0.65)
+    assert.equal(getScore('qwen3.5:397b'), 0.68)
+  })
+
+  it('applies direct score entries for new cloud-only models we track explicitly', () => {
+    assert.equal(getScore('gemini-3-flash-preview'), 0.78)
+    assert.equal(getScore('qwen3-coder-next'), 0.706)
+    assert.equal(getScore('rnj-1:8b'), 0.208)
+  })
+
+  it('resolves researched benchmark scores for newly discovered coding models', () => {
+    assert.equal(getScore('arcee-ai/trinity-large-thinking:free'), 0.632)
+    assert.equal(getScore('bytedance-seed/dola-seed-2.0-pro:free'), 0.765)
+    assert.equal(getScore('glm-5.1'), 0.584)
+    assert.equal(getScore('google/gemma-4-26b-a4b-it:free'), 0.771)
+    assert.equal(getScore('google/gemma-4-31b-it:free'), 0.8)
+    assert.equal(getScore('kimi-k2.6'), 0.802)
+  })
+
+  it('maps Gemma 4 Ollama aliases onto researched score entries', () => {
+    assert.equal(resolveAliasedModelId('gemma4:26b'), 'google/gemma-4-26b-a4b-it')
+    assert.equal(resolveAliasedModelId('gemma4:31b'), 'google/gemma-4-31b-it')
+    assert.equal(getScore('gemma4:31b'), 0.8)
+
+    const model = toOllamaModelMeta({
+      name: 'gemma4:31b',
+      model: 'gemma4:31b',
+    })
+
+    assert.ok(model)
+    assert.equal(model.label, 'Gemma 4 31B')
+    assert.equal(model.intell, 0.8)
+    assert.equal(model.isEstimatedScore, false)
+  })
+
+  it('maps Ollama cloud remote models to canonical score entries', () => {
+    const model = toOllamaModelMeta({
+      name: 'Minimax-m2.7:cloud',
+      model: 'Minimax-m2.7:cloud',
+      remote_model: 'minimax-m2.7',
+    })
+
+    assert.ok(model)
+    assert.equal(model.intell, 0.822)
+    assert.equal(model.isEstimatedScore, false)
+  })
+
+  it('uses researched Kimi K2.6 score and context for Ollama discovery', () => {
+    const model = toOllamaModelMeta({
+      name: 'kimi-k2.6',
+      model: 'kimi-k2.6',
+    })
+
+    assert.ok(model)
+    assert.equal(model.label, 'Kimi K2.6')
+    assert.equal(model.intell, 0.802)
+    assert.equal(model.isEstimatedScore, false)
+    assert.equal(model.ctx, '262k')
+  })
+
+  it('keeps MiniMax M-series SWE scores monotonic as versions increase', () => {
+    assert.ok(getScore('minimax-m2') < getScore('minimax-m2.1'))
+    assert.ok(getScore('minimax-m2.1') < getScore('minimax-m2.5'))
+    assert.ok(getScore('minimax-m2.5') < getScore('minimax-m2.7'))
+  })
+
   it('uses scores.js entry for OpenRouter models outside static sources', () => {
     const model = toOpenRouterModelMeta({
       id: 'google/gemma-3n-e2b-it:free',
@@ -367,6 +1063,40 @@ describe('dynamic model score resolution', () => {
     assert.equal(model.isEstimatedScore, false)
   })
 
+  it('uses researched score entries for newly discovered OpenRouter coding models', () => {
+    const gemma = toOpenRouterModelMeta({
+      id: 'google/gemma-4-31b-it:free',
+      name: 'Google: Gemma 4 31B (free)',
+      context_length: 262144,
+    })
+
+    assert.ok(gemma)
+    assert.equal(gemma.label, 'Gemma 4 31B')
+    assert.equal(gemma.intell, 0.8)
+    assert.equal(gemma.isEstimatedScore, false)
+  })
+
+  it('uses researched score entries for newly discovered OpenRouter free coding models', () => {
+    const cases = [
+      ['baidu/cobuddy:free', 0.715],
+      ['deepseek-v4-flash-free', 0.79],
+      ['inclusionai/ring-2.6-1t:free', 0.727],
+      ['nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free', 0.744],
+      ['poolside/laguna-m.1:free', 0.725],
+      ['poolside/laguna-xs.2:free', 0.682],
+      ['ring-2.6-1t-free', 0.727],
+    ]
+
+    for (const [modelId, expectedScore] of cases) {
+      assert.equal(getScore(modelId), expectedScore)
+    }
+  })
+
+  it('ignores safety-only dynamic models that should not be routed as coding models', () => {
+    assert.equal(toKiloCodeModelMeta({ id: 'meta-llama/llama-guard-4-12b:free' }), null)
+    assert.equal(toOpenRouterModelMeta({ id: 'meta-llama/llama-guard-4-12b:free' }), null)
+  })
+
   it('uses scores.js entry for KiloCode models when payload omits scores', () => {
     const model = toKiloCodeModelMeta({
       id: 'google/gemma-3n-e2b-it:free',
@@ -376,6 +1106,18 @@ describe('dynamic model score resolution', () => {
 
     assert.ok(model)
     assert.equal(model.intell, 0.25)
+    assert.equal(model.isEstimatedScore, false)
+  })
+
+  it('uses researched score entries for newly discovered KiloCode coding models', () => {
+    const model = toKiloCodeModelMeta({
+      id: 'arcee-ai/trinity-large-thinking:free',
+      display_name: 'Arcee Trinity Large Thinking',
+    })
+
+    assert.ok(model)
+    assert.equal(model.label, 'Trinity Large Thinking')
+    assert.equal(model.intell, 0.632)
     assert.equal(model.isEstimatedScore, false)
   })
 
@@ -400,8 +1142,61 @@ describe('dynamic model score resolution', () => {
     assert.equal(model.isEstimatedScore, false)
   })
 
-  it('ignores OpenCode Zen models that are not chat-completions compatible', () => {
+  it('normalizes Ling 2.6 Flash free aliases and keeps provider context metadata', () => {
+    assert.equal(resolveAliasedModelId('ling-2.6-flash-free'), 'inclusionai/ling-2.6-flash')
+    assert.equal(resolveAliasedModelId('inclusionai/ling-2.6-flash:free'), 'inclusionai/ling-2.6-flash')
+    assert.equal(getScore('ling-2.6-flash-free'), 0.771)
+    assert.equal(getScore('inclusionai/ling-2.6-flash:free'), 0.771)
+    assert.equal(getPreferredModelContext('ling-2.6-flash-free'), '262k')
+
+    const model = toOpenCodeModelMeta({ id: 'ling-2.6-flash-free' })
+
+    assert.ok(model)
+    assert.equal(model.label, 'Ling 2.6 Flash')
+    assert.equal(model.ctx, '262k')
+    assert.equal(model.intell, 0.771)
+    assert.equal(model.isEstimatedScore, false)
+
+    const openRouterModel = toOpenRouterModelMeta({
+      id: 'inclusionai/ling-2.6-flash:free',
+      name: 'inclusionAI: Ling-2.6-flash (free)',
+      context_length: 262144,
+    })
+
+    assert.ok(openRouterModel)
+    assert.equal(openRouterModel.intell, 0.771)
+    assert.equal(openRouterModel.isEstimatedScore, false)
+  })
+
+  it('deduplicates missing score audit entries by canonical model id', () => {
+    assert.equal(normalizeMissingScoreId('ling-2.6-flash-free'), 'inclusionai/ling-2.6-flash')
+    assert.equal(normalizeMissingScoreId('inclusionai/ling-2.6-flash:free'), 'inclusionai/ling-2.6-flash')
+  })
+
+  it('includes OpenCode Zen free models that end with -free', () => {
+    const qwen = toOpenCodeModelMeta({ id: 'qwen3.6-plus-free' })
+    const trinity = toOpenCodeModelMeta({ id: 'trinity-large-preview-free' })
+    const flash = toOpenCodeModelMeta({ id: 'mimo-v2-flash-free' })
+
+    assert.ok(qwen)
+    assert.equal(qwen.intell, 0.68)
+    assert.equal(qwen.isEstimatedScore, false)
+
+    assert.ok(trinity)
+    assert.equal(trinity.intell, 0.778)
+    assert.equal(trinity.isEstimatedScore, false)
+
+    assert.ok(flash)
+    assert.equal(flash.intell, 0.734)
+    assert.equal(flash.isEstimatedScore, false)
+  })
+
+  it('ignores OpenCode Zen models that are not free/chat-compatible for routing', () => {
     assert.equal(toOpenCodeModelMeta({ id: 'gpt-5.4' }), null)
+    assert.equal(toOpenCodeModelMeta({ id: 'big-pickle' }), null)
+    assert.equal(toOpenCodeModelMeta({ id: 'glm-5' }), null)
+    assert.equal(toOpenCodeModelMeta({ id: 'kimi-k2' }), null)
+    assert.equal(toOpenCodeModelMeta({ id: 'minimax-m2.5' }), null)
   })
 
   it('applies preferred MiMo display labels', () => {
@@ -412,111 +1207,13 @@ describe('dynamic model score resolution', () => {
     assert.equal(getPreferredModelLabel('minimax-m2.5-free', 'MiniMax M2.5 Free'), 'MiniMax M2.5')
     assert.equal(getPreferredModelLabel('nemotron-3-super-free', 'Nemotron 3 Super Free'), 'Nemotron 3 Super')
   })
-})
 
-describe('Qwen OAuth auth cycle', () => {
-  it('starts Qwen OAuth device login with PKCE', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async (url, options) => {
-      assert.equal(url, 'https://chat.qwen.ai/api/v1/oauth2/device/code')
-      assert.equal(options.method, 'POST')
-      assert.equal(typeof options.body, 'string')
-      assert.ok(options.body.includes('code_challenge='))
-      return {
-        ok: true,
-        async json() {
-          return {
-            device_code: 'device-code',
-            user_code: 'ABCD-EFGH',
-            verification_uri: 'https://chat.qwen.ai/device',
-            verification_uri_complete: 'https://chat.qwen.ai/device?code=ABCD-EFGH',
-            expires_in: 600,
-          }
-        },
-      }
-    }
-
-    try {
-      const session = await startQwenOauthDeviceLogin()
-      assert.equal(session.deviceCode, 'device-code')
-      assert.equal(session.userCode, 'ABCD-EFGH')
-      assert.equal(session.verificationUriComplete, 'https://chat.qwen.ai/device?code=ABCD-EFGH')
-      assert.equal(typeof session.codeVerifier, 'string')
-      assert.ok(session.codeVerifier.length > 20)
-    } finally {
-      globalThis.fetch = originalFetch
-    }
-  })
-
-  it('returns pending for authorization_pending device polling', async () => {
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async () => ({
-      ok: false,
-      status: 400,
-      async json() {
-        return { error: 'authorization_pending' }
-      },
-    })
-
-    try {
-      const result = await pollQwenOauthDeviceToken({ deviceCode: 'device-code', codeVerifier: 'code-verifier' })
-      assert.equal(result.status, 'pending')
-    } finally {
-      globalThis.fetch = originalFetch
-    }
-  })
-
-  it('accepts non-expired OAuth access tokens', () => {
-    const now = Date.now()
-    assert.equal(isQwenOauthAccessTokenValid({ access_token: 'token', expiry_date: now + 120_000 }, now), true)
-    assert.equal(isQwenOauthAccessTokenValid({ access_token: 'token', expiry_date: now + 10_000 }, now), false)
-  })
-
-  it('refreshes Qwen OAuth token and writes updated credentials', async () => {
-    const tempDir = mkdtempSync(join(tmpdir(), 'modelrelay-qwen-oauth-'))
-    const credsDir = join(tempDir, '.qwen')
-    const credsPath = join(credsDir, 'oauth_creds.json')
-    mkdirSync(credsDir, { recursive: true })
-    writeFileSync(credsPath, JSON.stringify({
-      access_token: 'expired-token',
-      refresh_token: 'refresh-token',
-      token_type: 'Bearer',
-      expiry_date: Date.now() - 60_000,
-    }, null, 2))
-
-    const originalFetch = globalThis.fetch
-    globalThis.fetch = async (url, options) => {
-      assert.equal(url, 'https://chat.qwen.ai/api/v1/oauth2/token')
-      assert.equal(options.method, 'POST')
-      assert.equal(typeof options.body, 'string')
-      assert.ok(options.body.includes('grant_type=refresh_token'))
-      return {
-        ok: true,
-        async json() {
-          return {
-            access_token: 'new-access-token',
-            refresh_token: 'new-refresh-token',
-            token_type: 'Bearer',
-            expires_in: 3600,
-          }
-        },
-      }
-    }
-
-    try {
-      const token = await resolveQwenCodeOauthAccessToken({ credentialsPath: credsPath })
-      assert.equal(token, 'new-access-token')
-
-      const updated = JSON.parse(readFileSync(credsPath, 'utf8'))
-      assert.equal(updated.access_token, 'new-access-token')
-      assert.equal(updated.refresh_token, 'new-refresh-token')
-      assert.equal(updated.token_type, 'Bearer')
-      assert.equal(typeof updated.expiry_date, 'number')
-      assert.ok(updated.expiry_date > Date.now())
-    } finally {
-      globalThis.fetch = originalFetch
-      rmSync(tempDir, { recursive: true, force: true })
-    }
+  it('preserves Ollama size tags while stripping runtime suffixes', () => {
+    assert.deepEqual(canonicalizeModelId('devstral-small-2:24b'), { base: 'devstral-small-2-24b', unprefixed: 'devstral-small-2-24b' })
+    assert.deepEqual(canonicalizeModelId('qwen3:4b'), { base: 'qwen/qwen3-4b', unprefixed: 'qwen3-4b' })
+    assert.deepEqual(canonicalizeModelId('gpt-oss:120b'), { base: 'openai/gpt-oss-120b', unprefixed: 'gpt-oss-120b' })
+    assert.deepEqual(canonicalizeModelId('Minimax-m2.7:cloud'), { base: 'minimax-m2.7', unprefixed: 'minimax-m2.7' })
+    assert.deepEqual(canonicalizeModelId('x-ai/grok-code-fast-1:optimized:free'), { base: 'x-ai/grok-code-fast-1', unprefixed: 'grok-code-fast-1' })
   })
 })
 
@@ -789,6 +1486,50 @@ describe('parseArgs', () => {
     assert.equal(imported.configAction, 'import')
     assert.equal(imported.configPayload, 'mrconf:v1:abc123')
   })
+
+  it('parses config set-keys command', () => {
+    const result = parseArgs(argv('config', 'set-keys', 'kilocode', 'key1,key2,key3'))
+    assert.equal(result.command, 'config')
+    assert.equal(result.configAction, 'set-keys')
+    assert.equal(result.configProvider, 'kilocode')
+    assert.equal(result.configKeys, 'key1,key2,key3')
+  })
+
+  it('parses config add-key command', () => {
+    const result = parseArgs(argv('config', 'add-key', 'nvidia', 'nvapi-extra'))
+    assert.equal(result.command, 'config')
+    assert.equal(result.configAction, 'add-key')
+    assert.equal(result.configProvider, 'nvidia')
+    assert.equal(result.configKeys, 'nvapi-extra')
+  })
+
+  it('parses config remove-key command', () => {
+    const result = parseArgs(argv('config', 'remove-key', 'groq', '1'))
+    assert.equal(result.command, 'config')
+    assert.equal(result.configAction, 'remove-key')
+    assert.equal(result.configProvider, 'groq')
+    assert.equal(result.configKeys, '1')
+  })
+
+  it('parses config set-maxturns command', () => {
+    const result = parseArgs(argv('config', 'set-maxturns', 'kilocode', '20'))
+    assert.equal(result.command, 'config')
+    assert.equal(result.configAction, 'set-maxturns')
+    assert.equal(result.configProvider, 'kilocode')
+    assert.equal(result.configMaxTurns, '20')
+  })
+
+  it('parses config set-maxturns with 0 to disable', () => {
+    const result = parseArgs(argv('config', 'set-maxturns', 'kilocode', '0'))
+    assert.equal(result.command, 'config')
+    assert.equal(result.configAction, 'set-maxturns')
+    assert.equal(result.configMaxTurns, '0')
+  })
+
+  it('parses status command', () => {
+    const result = parseArgs(argv('status'))
+    assert.equal(result.command, 'status')
+  })
 })
 
 describe('parseOpenRouterKeyRateLimit', () => {
@@ -941,6 +1682,19 @@ describe('onboard integrations', () => {
     assert.equal(provider.apiKey, 'no-key')
     assert.deepEqual(provider.models, [{ id: 'auto-fastest', name: 'Auto Fastest' }])
   })
+
+  it('applies Hermes Proxy preset to onboarding config without requiring a real API key', () => {
+    const config = { apiKeys: {}, providers: {} }
+    const instanceKey = applyHermesProxyEndpointPreset(config)
+
+    assert.equal(instanceKey, 'openai-compatible:hermes-proxy')
+    assert.equal(config.apiKeys[instanceKey], 'unused')
+    assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
+    assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8645/v1')
+    assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
+    assert.equal(config.providers[instanceKey].enabled, true)
+    assert.equal('discoverModels' in config.providers[instanceKey], false)
+  })
 })
 
 describe('model grouping and filtering', () => {
@@ -975,6 +1729,18 @@ describe('model grouping and filtering', () => {
 
     assert.equal(groups.length, 1)
     assert.equal(groups[0].id, 'minimax-m2.5')
+  })
+
+  it('keeps duplicate raw model ids from different providers addressable', () => {
+    const groups = buildModelGroups([
+      mockResult({ modelId: 'llama-3.1', label: 'Llama 3.1', providerKey: 'openai-compatible:local' }),
+      mockResult({ modelId: 'llama-3.1', label: 'Llama 3.1', providerKey: 'openai-compatible:remote' }),
+    ], canonicalizeModelId)
+
+    assert.deepEqual(groups.map(group => group.id).sort(), [
+      'openai-compatible:local/llama-3.1',
+      'openai-compatible:remote/llama-3.1',
+    ])
   })
 
   it('groups MiMo Omni aliases under one model name', () => {
@@ -1043,6 +1809,17 @@ describe('model grouping and filtering', () => {
     const filtered = filterModelsByRequested(results, 'auto-fastest', canonicalizeModelId)
     assert.equal(filtered.length, 3)
   })
+
+  it('filters duplicate raw model ids by endpoint-qualified group id', () => {
+    const duplicateResults = [
+      mockResult({ modelId: 'llama-3.1', label: 'Llama 3.1', providerKey: 'openai-compatible:local' }),
+      mockResult({ modelId: 'llama-3.1', label: 'Llama 3.1', providerKey: 'openai-compatible:remote' }),
+    ]
+
+    const filtered = filterModelsByRequested(duplicateResults, 'openai-compatible:remote/llama-3.1', canonicalizeModelId)
+
+    assert.deepEqual(filtered.map(r => r.providerKey), ['openai-compatible:remote'])
+  })
 })
 
 describe('pinned model routing', () => {
@@ -1072,6 +1849,18 @@ describe('pinned model routing', () => {
     const candidate = getPinnedModelCandidate(results, 'nvidia/glm4.7', 'canonical')
     assert.equal(candidate?.modelId, 'nvidia/glm4.7')
   })
+
+  it('can retry another provider with the same raw model id', () => {
+    const duplicateResults = [
+      mockResult({ modelId: 'llama-3.1', label: 'Llama 3.1', providerKey: 'openai-compatible:local', pings: [{ ms: 90, code: '200' }], intell: 10 }),
+      mockResult({ modelId: 'llama-3.1', label: 'Llama 3.1', providerKey: 'openai-compatible:remote', pings: [{ ms: 100, code: '200' }], intell: 10 }),
+    ]
+    const first = rankModelsForRouting(duplicateResults)[0]
+    const second = rankModelsForRouting(duplicateResults, [getRoutingModelKey(first)])[0]
+
+    assert.equal(first.providerKey, 'openai-compatible:local')
+    assert.equal(second.providerKey, 'openai-compatible:remote')
+  })
 })
 
 describe('package and entrypoint sanity', () => {
@@ -1083,9 +1872,7 @@ describe('package and entrypoint sanity', () => {
     assert.ok(pkg.version)
     assert.match(pkg.version, /^\d+\.\d+\.\d+$/)
     assert.equal(pkg.type, 'module')
-    assert.ok(pkg.bin['model-foundry'])
     assert.ok(pkg.bin.modelrelay)
-    assert.ok(existsSync(join(ROOT, pkg.bin['model-foundry'])))
     assert.ok(existsSync(join(ROOT, pkg.bin.modelrelay)))
   })
 
@@ -1093,5 +1880,499 @@ describe('package and entrypoint sanity', () => {
     assert.ok(binContent.startsWith('#!/usr/bin/env node'))
     assert.ok(binContent.includes("from '../lib/utils.js'"))
     assert.ok(binContent.includes("from '../lib/onboard.js'"))
+  })
+
+  it('includes a Hermes Proxy smoke test script in package metadata', () => {
+    assert.equal(pkg.scripts['smoke:hermes-proxy'], 'node scripts/smoke-hermes-proxy.mjs')
+    assert.ok(pkg.files.includes('scripts/'))
+    const scriptPath = join(ROOT, 'scripts/smoke-hermes-proxy.mjs')
+    assert.ok(existsSync(scriptPath))
+    const scriptContent = readFileSync(scriptPath, 'utf8')
+    assert.ok(scriptContent.includes('HERMES_PROXY_BASE_URL'))
+    assert.ok(scriptContent.includes('/chat/completions'))
+  })
+})
+
+describe('multi-account round-robin', () => {
+  describe('getApiKeyPool', () => {
+    it('returns single-element array for string key', () => {
+      const config = { apiKeys: { nvidia: 'nvapi-key1' } }
+      assert.deepEqual(getApiKeyPool(config, 'nvidia'), ['nvapi-key1'])
+    })
+
+    it('returns array for array keys', () => {
+      const config = { apiKeys: { kilocode: ['key1', 'key2', 'key3'] } }
+      assert.deepEqual(getApiKeyPool(config, 'kilocode'), ['key1', 'key2', 'key3'])
+    })
+
+    it('returns empty array for missing provider', () => {
+      const config = { apiKeys: {} }
+      assert.deepEqual(getApiKeyPool(config, 'nvidia'), [])
+    })
+
+    it('filters empty strings from array', () => {
+      const config = { apiKeys: { groq: ['key1', '', '  ', 'key2'] } }
+      assert.deepEqual(getApiKeyPool(config, 'groq'), ['key1', 'key2'])
+    })
+
+    it('trims whitespace from keys', () => {
+      const config = { apiKeys: { groq: ['  key1  ', '  key2  '] } }
+      assert.deepEqual(getApiKeyPool(config, 'groq'), ['key1', 'key2'])
+    })
+
+    it('env var overrides return single-element array', () => {
+      withEnv({ NVIDIA_API_KEY: 'env-key' }, () => {
+        const config = { apiKeys: { nvidia: ['file-key1', 'file-key2'] } }
+        assert.deepEqual(getApiKeyPool(config, 'nvidia'), ['env-key'])
+      })
+    })
+
+    it('ignores Qwen-specific env vars for the removed provider', () => {
+      withEnv({ DASHSCOPE_API_KEY: 'dashscope-key' }, () => {
+        assert.deepEqual(getApiKeyPool({ apiKeys: {} }, 'qwencode'), [])
+      })
+      withEnv({ QWEN_CODE_API_KEY: 'qwen-code-key' }, () => {
+        assert.deepEqual(getApiKeyPool({ apiKeys: {} }, 'qwencode'), [])
+      })
+    })
+  })
+
+  describe('getApiKey backward compatibility', () => {
+    it('returns first element for array keys', () => {
+      const config = { apiKeys: { kilocode: ['key1', 'key2', 'key3'] } }
+      assert.equal(getApiKey(config, 'kilocode'), 'key1')
+    })
+
+    it('returns string for string keys', () => {
+      const config = { apiKeys: { nvidia: 'nvapi-key1' } }
+      assert.equal(getApiKey(config, 'nvidia'), 'nvapi-key1')
+    })
+
+    it('returns null for empty array', () => {
+      const config = { apiKeys: { groq: [] } }
+      assert.equal(getApiKey(config, 'groq'), null)
+    })
+  })
+
+  describe('hasMultipleKeys', () => {
+    it('returns true for multiple array keys', () => {
+      const config = { apiKeys: { kilocode: ['key1', 'key2'] } }
+      assert.equal(hasMultipleKeys(config, 'kilocode'), true)
+    })
+
+    it('returns false for single string key', () => {
+      const config = { apiKeys: { nvidia: 'nvapi-key1' } }
+      assert.equal(hasMultipleKeys(config, 'nvidia'), false)
+    })
+
+    it('returns false for single-element array', () => {
+      const config = { apiKeys: { groq: ['key1'] } }
+      assert.equal(hasMultipleKeys(config, 'groq'), false)
+    })
+
+    it('returns false for missing provider', () => {
+      assert.equal(hasMultipleKeys({ apiKeys: {} }, 'nvidia'), false)
+    })
+  })
+
+  describe('getMaxTurns', () => {
+    it('returns configured value', () => {
+      const config = { providers: { kilocode: { maxTurns: 20 } } }
+      assert.equal(getMaxTurns(config, 'kilocode'), 20)
+    })
+
+    it('returns 0 when not configured', () => {
+      assert.equal(getMaxTurns({ providers: {} }, 'kilocode'), 0)
+      assert.equal(getMaxTurns({ providers: { kilocode: {} } }, 'kilocode'), 0)
+    })
+
+    it('returns 0 for invalid values', () => {
+      const config = { providers: { kilocode: { maxTurns: -1 } } }
+      assert.equal(getMaxTurns(config, 'kilocode'), 0)
+      const config2 = { providers: { kilocode: { maxTurns: 'abc' } } }
+      assert.equal(getMaxTurns(config2, 'kilocode'), 0)
+    })
+
+    it('floors fractional values', () => {
+      const config = { providers: { kilocode: { maxTurns: 10.7 } } }
+      assert.equal(getMaxTurns(config, 'kilocode'), 10)
+    })
+  })
+
+  describe('normalizeConfigShape with arrays', () => {
+    it('normalizes array apiKeys by trimming and filtering', () => {
+      const config = {
+        apiKeys: { kilocode: ['  key1  ', '', 'key2'] },
+        providers: {},
+      }
+      const normalized = normalizeConfigShape(config)
+      assert.deepEqual(normalized.apiKeys.kilocode, ['key1', 'key2'])
+    })
+
+    it('preserves string apiKeys unchanged', () => {
+      const config = {
+        apiKeys: { nvidia: '  nv-key  ' },
+        providers: {},
+      }
+      const normalized = normalizeConfigShape(config)
+      assert.equal(normalized.apiKeys.nvidia, 'nv-key')
+    })
+
+    it('handles mixed string and array apiKeys', () => {
+      const config = {
+        apiKeys: { nvidia: 'nv-key', kilocode: ['key1', 'key2'] },
+        providers: {},
+      }
+      const normalized = normalizeConfigShape(config)
+      assert.equal(normalized.apiKeys.nvidia, 'nv-key')
+      assert.deepEqual(normalized.apiKeys.kilocode, ['key1', 'key2'])
+    })
+
+    it('round-trips through export/import with array keys', () => {
+      const config = {
+        apiKeys: { kilocode: ['key1', 'key2'], nvidia: 'nv-key' },
+        providers: { kilocode: { enabled: true } },
+      }
+      const token = exportConfigToken(config)
+      const imported = importConfigToken(token)
+      assert.deepEqual(imported.apiKeys.kilocode, ['key1', 'key2'])
+      assert.equal(imported.apiKeys.nvidia, 'nv-key')
+    })
+  })
+
+  describe('getAccountStatus', () => {
+    it('returns empty when pool state is not initialized', () => {
+      const result = getAccountStatus({ apiKeys: { kilocode: ['k1', 'k2'] } })
+      assert.deepEqual(result, { providers: {} })
+    })
+  })
+
+  describe('selectNextApiKeyFromPool', () => {
+    it('returns null when every key is still inside cooldown', () => {
+      const now = 1_000_000
+      const pool = ['key1', 'key2']
+      const entry = {
+        currentIdx: 0,
+        accounts: new Map([
+          [0, { requests: 1, rateLimitedAt: now - 10_000 }],
+          [1, { requests: 1, rateLimitedAt: now - 20_000 }],
+        ]),
+      }
+
+      const selected = selectNextApiKeyFromPool(pool, entry, 0, now, 60_000)
+
+      assert.equal(selected, null)
+      assert.equal(entry.currentIdx, 0)
+      assert.equal(entry.accounts.get(0).requests, 1)
+      assert.equal(entry.accounts.get(1).requests, 1)
+    })
+
+    it('resets counters when only maxTurns exhaustion blocks the pool', () => {
+      const now = 1_000_000
+      const pool = ['key1', 'key2']
+      const entry = {
+        currentIdx: 0,
+        accounts: new Map([
+          [0, { requests: 2, rateLimitedAt: 0 }],
+          [1, { requests: 2, rateLimitedAt: 0 }],
+        ]),
+      }
+
+      const selected = selectNextApiKeyFromPool(pool, entry, 2, now, 60_000)
+
+      assert.equal(selected, 'key1')
+      assert.equal(entry.currentIdx, 1)
+      assert.equal(entry.accounts.get(0).requests, 1)
+      assert.equal(entry.accounts.get(1).requests, 0)
+    })
+  })
+})
+
+describe('OpenAI-compatible multi-instance support', () => {
+  it('detects instance keys and extracts ids', () => {
+    assert.equal(isOpenAICompatibleInstanceKey('openai-compatible:default'), true)
+    assert.equal(isOpenAICompatibleInstanceKey('openai-compatible:my-vllm'), true)
+    assert.equal(isOpenAICompatibleInstanceKey('openai-compatible'), false)
+    assert.equal(isOpenAICompatibleInstanceKey('groq'), false)
+
+    assert.equal(getOpenAICompatibleInstanceId('openai-compatible:my-vllm'), 'my-vllm')
+    assert.equal(getOpenAICompatibleInstanceId('groq'), null)
+
+    assert.equal(getBaseProviderKey('openai-compatible:my-vllm'), 'openai-compatible')
+    assert.equal(getBaseProviderKey('groq'), 'groq')
+  })
+
+  it('builds instance keys from human-friendly names', () => {
+    assert.equal(buildOpenAICompatibleInstanceKey('My vLLM '), 'openai-compatible:my-vllm')
+    assert.equal(buildOpenAICompatibleInstanceKey('Foo Bar 123'), 'openai-compatible:foo-bar-123')
+    assert.equal(buildOpenAICompatibleInstanceKey(''), null)
+    assert.equal(buildOpenAICompatibleInstanceKey('!!!'), null)
+  })
+
+  it('normalizeConfigShape migrates a legacy bare-key config to :default', () => {
+    const legacy = {
+      apiKeys: { 'openai-compatible': 'sk-legacy' },
+      providers: { 'openai-compatible': { enabled: true, baseUrl: 'https://legacy.example/v1', modelId: 'old/model' } },
+    }
+    const normalized = normalizeConfigShape(legacy)
+    assert.equal(normalized.apiKeys['openai-compatible'], undefined)
+    assert.equal(normalized.providers['openai-compatible'], undefined)
+    assert.equal(normalized.apiKeys['openai-compatible:default'], 'sk-legacy')
+    assert.deepEqual(normalized.providers['openai-compatible:default'], {
+      enabled: true,
+      baseUrl: 'https://legacy.example/v1',
+      modelId: 'old/model',
+      name: 'Default',
+    })
+  })
+
+  it('normalizeConfigShape leaves a config without legacy entries alone', () => {
+    const cfg = {
+      apiKeys: { 'openai-compatible:my-vllm': 'sk-vllm' },
+      providers: { 'openai-compatible:my-vllm': { name: 'vLLM', baseUrl: 'http://localhost:8000/v1', modelId: 'qwen' } },
+    }
+    const normalized = normalizeConfigShape(cfg)
+    assert.equal(normalized.apiKeys['openai-compatible:my-vllm'], 'sk-vllm')
+    assert.equal(normalized.providers['openai-compatible:my-vllm'].baseUrl, 'http://localhost:8000/v1')
+    // The bare entry should not be (re)created.
+    assert.equal(normalized.apiKeys['openai-compatible'], undefined)
+    assert.equal(normalized.providers['openai-compatible'], undefined)
+  })
+
+  it('normalizeConfigShape does not clobber an existing :default instance', () => {
+    const legacy = {
+      apiKeys: {
+        'openai-compatible': 'sk-legacy',
+        'openai-compatible:default': 'sk-already-here',
+      },
+      providers: {
+        'openai-compatible': { baseUrl: 'https://legacy.example/v1' },
+        'openai-compatible:default': { name: 'Pre-existing', baseUrl: 'https://default.example/v1', modelId: 'm' },
+      },
+    }
+    const normalized = normalizeConfigShape(legacy)
+    assert.equal(normalized.apiKeys['openai-compatible:default'], 'sk-already-here')
+    assert.equal(normalized.providers['openai-compatible:default'].name, 'Pre-existing')
+    assert.equal(normalized.apiKeys['openai-compatible'], undefined)
+    assert.equal(normalized.providers['openai-compatible'], undefined)
+  })
+
+  it('legacy OPENAI_COMPATIBLE_* env vars feed the :default instance', () => {
+    const originalKey = process.env.OPENAI_COMPATIBLE_API_KEY
+    const originalBaseUrl = process.env.OPENAI_COMPATIBLE_BASE_URL
+    const originalModel = process.env.OPENAI_COMPATIBLE_MODEL
+
+    try {
+      process.env.OPENAI_COMPATIBLE_API_KEY = 'env-key'
+      process.env.OPENAI_COMPATIBLE_BASE_URL = 'https://env.example/v1'
+      process.env.OPENAI_COMPATIBLE_MODEL = 'env/model'
+
+      const config = { apiKeys: {}, providers: {} }
+      assert.equal(getApiKey(config, 'openai-compatible:default'), 'env-key')
+      assert.equal(getProviderBaseUrl(config, 'openai-compatible:default'), 'https://env.example/v1')
+      assert.equal(getProviderModelId(config, 'openai-compatible:default'), 'env/model')
+
+      // Env vars should NOT apply to a non-default instance.
+      assert.equal(getApiKey(config, 'openai-compatible:other'), null)
+      assert.equal(getProviderBaseUrl(config, 'openai-compatible:other'), null)
+    } finally {
+      if (originalKey == null) delete process.env.OPENAI_COMPATIBLE_API_KEY
+      else process.env.OPENAI_COMPATIBLE_API_KEY = originalKey
+      if (originalBaseUrl == null) delete process.env.OPENAI_COMPATIBLE_BASE_URL
+      else process.env.OPENAI_COMPATIBLE_BASE_URL = originalBaseUrl
+      if (originalModel == null) delete process.env.OPENAI_COMPATIBLE_MODEL
+      else process.env.OPENAI_COMPATIBLE_MODEL = originalModel
+    }
+  })
+
+  it('listOpenAICompatibleEndpoints returns instances in stable insertion order', () => {
+    const config = normalizeConfigShape({
+      apiKeys: {
+        'openai-compatible:alpha': 'sk-a',
+        'openai-compatible:beta': 'sk-b',
+      },
+      providers: {
+        'openai-compatible:alpha': { name: 'Alpha', baseUrl: 'https://a/v1', modelId: 'a-model' },
+        'openai-compatible:beta':  { name: 'Beta',  baseUrl: 'https://b/v1', modelId: 'b-model', enabled: false },
+      },
+    })
+
+    const list = listOpenAICompatibleEndpoints(config)
+    assert.equal(list.length, 2)
+    assert.equal(list[0].instanceKey, 'openai-compatible:alpha')
+    assert.equal(list[0].id, 'alpha')
+    assert.equal(list[0].name, 'Alpha')
+    assert.equal(list[0].baseUrl, 'https://a/v1')
+    assert.equal(list[0].modelId, 'a-model')
+    assert.equal(list[0].apiKey, 'sk-a')
+    assert.equal(list[0].enabled, true)
+
+    assert.equal(list[1].instanceKey, 'openai-compatible:beta')
+    assert.equal(list[1].enabled, false)
+  })
+
+  it('upsertOpenAICompatibleEndpoint and remove round-trip cleanly', () => {
+    const config = { apiKeys: {}, providers: {} }
+    const key1 = upsertOpenAICompatibleEndpoint(config, { id: 'one', name: 'One', baseUrl: 'https://one/v1', modelId: 'm1', apiKey: 'sk-1' })
+    assert.equal(key1, 'openai-compatible:one')
+    assert.equal(config.apiKeys[key1], 'sk-1')
+    assert.equal(config.providers[key1].baseUrl, 'https://one/v1')
+    assert.equal(config.providers[key1].name, 'One')
+
+    // Update preserves untouched fields.
+    upsertOpenAICompatibleEndpoint(config, { instanceKey: key1, modelId: 'm1-new' })
+    assert.equal(config.providers[key1].baseUrl, 'https://one/v1')
+    assert.equal(config.providers[key1].modelId, 'm1-new')
+
+    const removed = removeOpenAICompatibleEndpoint(config, key1)
+    assert.equal(removed, true)
+    assert.equal(config.apiKeys[key1], undefined)
+    assert.equal(config.providers[key1], undefined)
+
+    // Removing again is a no-op.
+    assert.equal(removeOpenAICompatibleEndpoint(config, key1), false)
+    // Refusing to remove a non-instance key.
+    assert.equal(removeOpenAICompatibleEndpoint(config, 'groq'), false)
+  })
+
+  it('upsertOpenAICompatibleEndpoint persists discoverModels=false explicitly', () => {
+    const config = { apiKeys: {}, providers: {} }
+    upsertOpenAICompatibleEndpoint(config, { id: 'one', name: 'One', baseUrl: 'http://h/v1' })
+    assert.equal(config.providers['openai-compatible:one'].discoverModels, undefined)
+
+    upsertOpenAICompatibleEndpoint(config, { instanceKey: 'openai-compatible:one', discoverModels: false })
+    assert.equal(config.providers['openai-compatible:one'].discoverModels, false)
+
+    upsertOpenAICompatibleEndpoint(config, { instanceKey: 'openai-compatible:one', discoverModels: true })
+    assert.equal('discoverModels' in config.providers['openai-compatible:one'], false)
+  })
+
+  it('builds a Hermes Proxy endpoint preset with generic OpenAI-compatible defaults', () => {
+    const preset = buildHermesProxyEndpointPreset()
+
+    assert.deepEqual(preset, {
+      id: 'hermes-proxy',
+      name: 'Hermes Proxy',
+      baseUrl: 'http://127.0.0.1:8645/v1',
+      modelId: 'gpt-5.5',
+      apiKey: 'unused',
+      enabled: true,
+      discoverModels: true,
+    })
+  })
+
+  it('builds a Hermes Proxy endpoint preset with overrides', () => {
+    const preset = buildHermesProxyEndpointPreset({ modelId: 'grok-4.3', enabled: false })
+
+    assert.equal(preset.id, 'hermes-proxy')
+    assert.equal(preset.name, 'Hermes Proxy')
+    assert.equal(preset.modelId, 'grok-4.3')
+    assert.equal(preset.enabled, false)
+  })
+
+  it('builds a Hermes Proxy endpoint preset from MODELFOUNDRY_HERMES_PROXY_BASE_URL', () => {
+    const previous = process.env.MODELFOUNDRY_HERMES_PROXY_BASE_URL
+    process.env.MODELFOUNDRY_HERMES_PROXY_BASE_URL = ' http://host.docker.internal:8648/v1 '
+
+    try {
+      const preset = buildHermesProxyEndpointPreset()
+      assert.equal(preset.baseUrl, 'http://host.docker.internal:8648/v1')
+    } finally {
+      if (previous == null) delete process.env.MODELFOUNDRY_HERMES_PROXY_BASE_URL
+      else process.env.MODELFOUNDRY_HERMES_PROXY_BASE_URL = previous
+    }
+  })
+
+  it('upserts the Hermes Proxy preset as a stable OpenAI-compatible endpoint', () => {
+    const config = { apiKeys: {}, providers: {} }
+    const instanceKey = upsertOpenAICompatibleEndpoint(config, buildHermesProxyEndpointPreset())
+
+    assert.equal(instanceKey, 'openai-compatible:hermes-proxy')
+    assert.equal(config.apiKeys[instanceKey], 'unused')
+    assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
+    assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8645/v1')
+    assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
+    assert.equal('discoverModels' in config.providers[instanceKey], false)
+
+    const [endpoint] = listOpenAICompatibleEndpoints(config)
+    assert.equal(endpoint.instanceKey, 'openai-compatible:hermes-proxy')
+    assert.equal(endpoint.id, 'hermes-proxy')
+    assert.equal(endpoint.name, 'Hermes Proxy')
+    assert.equal(endpoint.baseUrl, 'http://127.0.0.1:8645/v1')
+    assert.equal(endpoint.modelId, 'gpt-5.5')
+    assert.equal(endpoint.apiKey, 'unused')
+    assert.equal(endpoint.discoverModels, true)
+  })
+
+  it('config export/import preserves multi-instance shape', () => {
+    const original = normalizeConfigShape({
+      apiKeys: {
+        'openai-compatible:alpha': 'sk-a',
+        'openai-compatible:beta': 'sk-b',
+      },
+      providers: {
+        'openai-compatible:alpha': { name: 'Alpha', baseUrl: 'https://a/v1', modelId: 'a-model' },
+        'openai-compatible:beta':  { name: 'Beta',  baseUrl: 'https://b/v1', modelId: 'b-model' },
+      },
+    })
+
+    const token = exportConfigToken(original)
+    const reimported = importConfigToken(token)
+
+    assert.equal(reimported.apiKeys['openai-compatible:alpha'], 'sk-a')
+    assert.equal(reimported.apiKeys['openai-compatible:beta'], 'sk-b')
+    assert.equal(reimported.providers['openai-compatible:alpha'].name, 'Alpha')
+    assert.equal(reimported.providers['openai-compatible:beta'].modelId, 'b-model')
+  })
+})
+
+describe('OpenAI-compatible model discovery', () => {
+  it('builds the /v1/models URL from a variety of base URLs', () => {
+    assert.equal(buildOpenAICompatibleModelsListUrl('https://api.example.com'), 'https://api.example.com/v1/models')
+    assert.equal(buildOpenAICompatibleModelsListUrl('https://api.example.com/'), 'https://api.example.com/v1/models')
+    assert.equal(buildOpenAICompatibleModelsListUrl('https://api.example.com/v1'), 'https://api.example.com/v1/models')
+    assert.equal(buildOpenAICompatibleModelsListUrl('https://api.example.com/v1/'), 'https://api.example.com/v1/models')
+    assert.equal(buildOpenAICompatibleModelsListUrl('https://api.example.com/v1/chat/completions'), 'https://api.example.com/v1/models')
+    assert.equal(buildOpenAICompatibleModelsListUrl('https://api.example.com/v1/models'), 'https://api.example.com/v1/models')
+    assert.equal(buildOpenAICompatibleModelsListUrl('api.example.com/v1'), 'https://api.example.com/v1/models')
+    assert.equal(buildOpenAICompatibleModelsListUrl(''), null)
+    assert.equal(buildOpenAICompatibleModelsListUrl(null), null)
+  })
+
+  it('extracts records from common payload shapes', () => {
+    assert.deepEqual(extractOpenAICompatibleModelRecords({ data: [{ id: 'a' }, { id: 'b' }] }), [{ id: 'a' }, { id: 'b' }])
+    assert.deepEqual(extractOpenAICompatibleModelRecords({ models: [{ id: 'a' }] }), [{ id: 'a' }])
+    assert.deepEqual(extractOpenAICompatibleModelRecords([{ id: 'a' }]), [{ id: 'a' }])
+    assert.deepEqual(extractOpenAICompatibleModelRecords({}), [])
+    assert.deepEqual(extractOpenAICompatibleModelRecords(null), [])
+  })
+
+  it('converts a discovered record to a model-meta tagged with the instance key', () => {
+    const meta = toOpenAICompatibleDiscoveredModelMeta(
+      { id: 'qwen2.5-coder:7b', context_length: 32768, name: 'Qwen2.5 Coder 7B' },
+      'openai-compatible:my-vllm',
+      'https://host/v1/chat/completions',
+    )
+    assert.ok(meta)
+    assert.equal(meta.modelId, 'qwen2.5-coder:7b')
+    assert.equal(meta.label, 'Qwen2.5 Coder 7B')
+    assert.equal(meta.providerKey, 'openai-compatible:my-vllm')
+    assert.equal(meta.providerUrl, 'https://host/v1/chat/completions')
+    // 32768 → "33k" via the shared parser
+    assert.equal(meta.ctx, '33k')
+  })
+
+  it('falls back to a synthesized label when the record has none', () => {
+    const meta = toOpenAICompatibleDiscoveredModelMeta({ id: 'some_unknown-model' }, 'openai-compatible:x')
+    assert.ok(meta)
+    assert.equal(meta.modelId, 'some_unknown-model')
+    assert.equal(meta.label, 'Some Unknown Model')
+    assert.equal(meta.isEstimatedScore, true)
+  })
+
+  it('rejects records without a usable id', () => {
+    assert.equal(toOpenAICompatibleDiscoveredModelMeta({}, 'openai-compatible:x'), null)
+    assert.equal(toOpenAICompatibleDiscoveredModelMeta({ id: '   ' }, 'openai-compatible:x'), null)
+    assert.equal(toOpenAICompatibleDiscoveredModelMeta('', 'openai-compatible:x'), null)
   })
 })

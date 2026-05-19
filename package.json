@@ -1,7 +1,7 @@
 {
-  "name": "model-foundry",
-  "version": "1.12.1",
-  "description": "OpenAI-compatible optional model router, dashboard, and comparison layer for OpenClaw and OpenCode.",
+  "name": "modelrelay",
+  "version": "1.17.1",
+  "description": "OpenAI-compatible local router that benchmarks free coding models across providers and forwards requests to the best available model.",
   "keywords": [
     "nvidia",
     "nim",
@@ -23,27 +23,26 @@
     "openai",
     "api"
   ],
-  "homepage": "https://github.com/Codename-11/model-foundry#readme",
+  "homepage": "https://github.com/modelrelay#readme",
   "bugs": {
-    "url": "https://github.com/Codename-11/model-foundry/issues"
+    "url": "https://github.com/modelrelay/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Codename-11/model-foundry.git"
+    "url": "git+https://github.com/modelrelay.git"
   },
   "license": "MIT",
   "author": "anonymous",
   "type": "module",
   "main": "bin/modelrelay.js",
   "bin": {
-    "model-foundry": "./bin/modelrelay.js",
     "modelrelay": "./bin/modelrelay.js"
   },
   "files": [
     "bin/",
     "lib/",
-    "dist/",
     "public/",
+    "scripts/",
     "sources.js",
     "scores.js",
     "README.md",
@@ -51,22 +50,22 @@
   ],
   "scripts": {
     "start": "node bin/modelrelay.js",
-    "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev:server\" \"npm run dev:client\"",
-    "dev:server": "node bin/modelrelay.js",
-    "dev:client": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test": "node --test test/test.js"
+    "test": "node --test test/test.js",
+    "smoke:hermes-proxy": "node scripts/smoke-hermes-proxy.mjs"
   },
   "dependencies": {
     "chalk": "^5.4.1",
     "express": "^5.2.1"
   },
+  "overrides": {
+    "path-to-regexp": "8.4.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "path-to-regexp": "8.4.0"
+    }
+  },
   "engines": {
     "node": ">=18.0.0"
-  },
-  "devDependencies": {
-    "concurrently": "^9.2.1",
-    "vite": "^7.1.5"
   }
 }

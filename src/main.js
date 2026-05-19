@@ -1,4 +1,2178 @@
-import './styles.css';
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ModelFoundry / ModelRelay</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <style>
+    :root {
+      --bg: #fdfcfb;
+      --card: #ffffff;
+      --border: #eceae8;
+      --border-subtle: #e5e7eb;
+      --text: #1a1918;
+      --text-muted: #8c8985;
+      --text-dim: #64748b;
+      --accent: #3b82f6;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --error: #ef4444;
+      --surface-alt: #f3f2f1;
+      --surface-hover: #eef2f7;
+      --input-bg: #ffffff;
+      --input-bg-alt: #f3f2f1;
+      --status-success-bg: #ecfdf5;
+      --status-success-text: #065f46;
+      --status-success-border: #a7f3d0;
+      --status-warning-bg: #fffbeb;
+      --status-warning-text: #92400e;
+      --status-warning-border: #fef3c7;
+      --status-error-bg: #fef2f2;
+      --status-error-text: #991b1b;
+      --status-error-border: #fee2e2;
+      --status-info-bg: #eff6ff;
+      --status-info-text: #1e40af;
+      --status-info-border: #bfdbfe;
+      --status-neutral-bg: #f1f5f9;
+      --status-neutral-text: #334155;
+      --status-neutral-border: #cbd5e1;
+      --chat-bg: #faf9f8;
+      --overlay-bg: rgba(255, 255, 255, 0.9);
+      --shadow-color: rgba(0, 0, 0, 0.02);
+      --drawer-shadow: rgba(0, 0, 0, 0.1);
+      --modal-overlay: rgba(0, 0, 0, 0.1);
+      --panel-gradient-start: #ffffff;
+      --panel-gradient-end: #fbfaf8;
+      --panel-decor: rgba(140, 137, 133, 0.16);
+      --update-badge-bg: #dcfce7;
+      --update-badge-text: #166534;
+      --update-badge-border: #bbf7d0;
+      --update-badge-hover: #bbf7d0;
+      --progress-bg: #f3f2f1;
+      --spinner-track: #f3f2f1;
+      --tier-splus-bg: #ecfdf5;
+      --tier-splus-text: #065f46;
+      --tier-splus-border: #a7f3d0;
+      --tier-s-bg: #f0fdf4;
+      --tier-s-text: #166534;
+      --tier-s-border: #bbf7d0;
+      --tier-aplus-bg: #eff6ff;
+      --tier-aplus-text: #1e40af;
+      --tier-aplus-border: #bfdbfe;
+      --tier-a-bg: #f0f9ff;
+      --tier-a-text: #075985;
+      --tier-a-border: #bae6fd;
+      --tier-b-bg: #fffbeb;
+      --tier-b-text: #92400e;
+      --tier-b-border: #fef3c7;
+      --tier-c-bg: #fef2f2;
+      --tier-c-text: #991b1b;
+      --tier-c-border: #fee2e2;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0f1117;
+      --card: #1a1d27;
+      --border: #2a2d37;
+      --border-subtle: #252832;
+      --text: #e4e4e7;
+      --text-muted: #71717a;
+      --text-dim: #64748b;
+      --accent: #60a5fa;
+      --success: #34d399;
+      --warning: #fbbf24;
+      --error: #f87171;
+      --surface-alt: #23262f;
+      --surface-hover: #2a2d37;
+      --input-bg: #14161e;
+      --input-bg-alt: #23262f;
+      --status-success-bg: #052e16;
+      --status-success-text: #34d399;
+      --status-success-border: #166534;
+      --status-warning-bg: #451a03;
+      --status-warning-text: #fbbf24;
+      --status-warning-border: #92400e;
+      --status-error-bg: #450a0a;
+      --status-error-text: #f87171;
+      --status-error-border: #991b1b;
+      --status-info-bg: #172554;
+      --status-info-text: #60a5fa;
+      --status-info-border: #1e40af;
+      --status-neutral-bg: #1e293b;
+      --status-neutral-text: #94a3b8;
+      --status-neutral-border: #334155;
+      --chat-bg: #14161e;
+      --overlay-bg: rgba(15, 17, 23, 0.9);
+      --shadow-color: rgba(0, 0, 0, 0.2);
+      --drawer-shadow: rgba(0, 0, 0, 0.4);
+      --modal-overlay: rgba(0, 0, 0, 0.5);
+      --panel-gradient-start: #1a1d27;
+      --panel-gradient-end: #14161e;
+      --panel-decor: rgba(100, 116, 139, 0.12);
+      --update-badge-bg: #052e16;
+      --update-badge-text: #34d399;
+      --update-badge-border: #166534;
+      --update-badge-hover: #166534;
+      --progress-bg: #23262f;
+      --spinner-track: #23262f;
+      --tier-splus-bg: #052e16;
+      --tier-splus-text: #34d399;
+      --tier-splus-border: #166534;
+      --tier-s-bg: #052e16;
+      --tier-s-text: #4ade80;
+      --tier-s-border: #166534;
+      --tier-aplus-bg: #172554;
+      --tier-aplus-text: #60a5fa;
+      --tier-aplus-border: #1e40af;
+      --tier-a-bg: #172554;
+      --tier-a-text: #7dd3fc;
+      --tier-a-border: #1e40af;
+      --tier-b-bg: #451a03;
+      --tier-b-text: #fbbf24;
+      --tier-b-border: #92400e;
+      --tier-c-bg: #450a0a;
+      --tier-c-text: #f87171;
+      --tier-c-border: #991b1b;
+    }
+
+    [data-theme="dark"] input,
+    [data-theme="dark"] select,
+    [data-theme="dark"] textarea {
+      background: var(--input-bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    [data-theme="dark"] input[type="number"]::-webkit-inner-spin-button,
+    [data-theme="dark"] input[type="number"]::-webkit-outer-spin-button {
+      filter: invert(1);
+    }
+
+    .pill-estimate {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      background: var(--surface-alt);
+      color: var(--text-dim);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      margin-left: 4px;
+      vertical-align: middle;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Geist", "Inter", sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      padding-bottom: 100px;
+    }
+
+    /* Layout */
+    .container {
+      max-width: 1400px;
+      margin: 48px auto;
+      padding: 0 24px;
+    }
+
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 20px;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .dashboard-eyebrow {
+      margin: 0;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .dashboard-heading {
+      margin: 8px 0 0;
+      font-size: clamp(1.45rem, 2.2vw, 2rem);
+      letter-spacing: -0.03em;
+    }
+
+    .dashboard-subtitle {
+      margin: 8px 0 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      max-width: 58ch;
+    }
+
+    /* KPI Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+      margin-bottom: 40px;
+    }
+
+    .kpi-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 18px 20px;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-height: 102px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* SVG Animations */
+    .kpi-bg-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0.6;
+    }
+
+    .kpi-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .star-dim {
+      fill: var(--text-muted);
+      opacity: 0.15;
+      transition: all 1.5s ease-in-out;
+    }
+
+    .star-bright {
+      fill: var(--accent);
+      animation: twinkle 3s infinite alternate;
+      transition: all 1.5s ease-in-out;
+    }
+
+    .constellation-line {
+      stroke: var(--accent);
+      stroke-width: 0.5;
+      opacity: 0.3;
+      transition: all 1.5s ease-in-out;
+    }
+
+    .constellation-line-hidden {
+      stroke: var(--accent);
+      stroke-width: 0.5;
+      opacity: 0;
+      transition: all 1.5s ease-in-out;
+    }
+
+    .net-node-dim {
+      fill: var(--text-muted);
+      opacity: 0.15;
+      transition: all 1.5s ease-in-out;
+    }
+
+    .net-node-bright {
+      fill: var(--success);
+      filter: drop-shadow(0 0 2px var(--success));
+      animation: pulse-node 4s infinite alternate;
+      transition: all 1.5s ease-in-out;
+    }
+
+    .net-link {
+      stroke: var(--text-muted);
+      stroke-width: 0.5;
+      opacity: 0.1;
+      transition: all 1.5s ease-in-out;
+    }
+
+    .net-link-active {
+      stroke: var(--success);
+      stroke-width: 1;
+      opacity: 0.6;
+      animation: dash 30s linear infinite;
+      stroke-dasharray: 4;
+      transition: all 1.5s ease-in-out;
+    }
+
+    .net-hub {
+      fill: var(--text);
+      filter: drop-shadow(0 0 4px var(--text));
+    }
+
+    .current-core {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 1;
+      opacity: 0.2;
+      transform-origin: center;
+      animation: spin-slow 30s linear infinite;
+      transition: opacity 1.5s ease-in-out;
+    }
+
+    .current-pulse {
+      fill: var(--accent);
+      opacity: 0.1;
+      transform-origin: center;
+      animation: heart-beat 4s ease-in-out infinite alternate;
+      transition: opacity 1.5s ease-in-out;
+    }
+
+    @keyframes twinkle {
+      0% {
+        opacity: 0.4;
+      }
+
+      100% {
+        opacity: 1;
+        filter: drop-shadow(0 0 2px var(--accent));
+      }
+    }
+
+    @keyframes pulse-node {
+      0% {
+        opacity: 0.5;
+        transform: scale(0.9);
+      }
+
+      100% {
+        opacity: 1;
+        transform: scale(1.1);
+      }
+    }
+
+    @keyframes dash {
+      to {
+        stroke-dashoffset: -100;
+      }
+    }
+
+    @keyframes spin-slow {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes heart-beat {
+      0% {
+        transform: scale(0.8);
+        opacity: 0.05;
+      }
+
+      100% {
+        transform: scale(1.2);
+        opacity: 0.25;
+      }
+    }
+
+    .kpi-label {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .kpi-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .signal-icon {
+      width: 12px;
+      height: 12px;
+      fill: var(--accent);
+      opacity: 0.3;
+    }
+
+    .kpi-card:hover .signal-icon {
+      animation: signal-ping 1s ease-out forwards;
+    }
+
+    @keyframes signal-ping {
+      0% {
+        transform: scale(1);
+        opacity: 0.8;
+      }
+
+      100% {
+        transform: scale(2.5);
+        opacity: 0;
+      }
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tab {
+      padding: 0.75rem 0;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.875rem;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* Views */
+    #settings-view {
+      display: none;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+    }
+
+    #setup-view {
+      display: none;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 32px;
+    }
+
+    #chat-view {
+      display: none;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 24px;
+    }
+
+    .chat-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 520px;
+    }
+
+    .chat-toolbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .chat-model-select {
+      min-width: 280px;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      font-size: 0.84rem;
+      outline: none;
+    }
+
+    .chat-model-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .chat-transcript {
+      flex: 1;
+      min-height: 340px;
+      max-height: 62vh;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--chat-bg);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .chat-empty {
+      margin: auto;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.84rem;
+      max-width: 42ch;
+      line-height: 1.5;
+    }
+
+    .chat-msg {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      padding: 10px 12px;
+      box-shadow: 0 1px 2px var(--shadow-color);
+    }
+
+    .chat-msg.user {
+      border-left: 3px solid var(--success);
+    }
+
+    .chat-msg.assistant {
+      border-left: 3px solid var(--accent);
+    }
+
+    .chat-msg.system {
+      border-left: 3px solid var(--warning);
+    }
+
+    .chat-msg-role {
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .chat-msg-content {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.84rem;
+      line-height: 1.5;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--text);
+    }
+
+    .chat-typing {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      padding: 6px 0 0 2px;
+    }
+
+    .chat-typing-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      opacity: 0.3;
+      animation: chatTyping 1.2s infinite ease-in-out;
+    }
+
+    .chat-typing-dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .chat-typing-dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes chatTyping {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.25; }
+      40% { transform: translateY(-3px); opacity: 0.9; }
+    }
+
+    .chat-composer {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .chat-input {
+      width: 100%;
+      min-height: 86px;
+      box-sizing: border-box;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.86rem;
+      line-height: 1.45;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      background: var(--card);
+      color: var(--text);
+    }
+
+    .chat-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .chat-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .chat-status {
+      min-height: 1em;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .chat-status.error {
+      color: var(--status-error-text);
+    }
+
+    .chat-status.success {
+      color: var(--status-success-text);
+    }
+
+    .chat-send-btn[disabled] {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .setup-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .setup-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      background: var(--chat-bg);
+    }
+
+    .setup-card h3 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+    }
+
+    .setup-method {
+      margin-top: 14px;
+    }
+
+    .setup-method-title {
+      margin: 0 0 8px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 700;
+    }
+
+    .setup-steps {
+      margin: 0;
+      padding-left: 18px;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .setup-snippet {
+      margin: 10px 0 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    @media (max-width: 920px) {
+      .setup-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .dashboard-header {
+        align-items: flex-start;
+      }
+
+      #settings-view, #setup-view {
+        padding: 24px 20px;
+      }
+
+      .table-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .search-bar {
+        max-width: 100%;
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        margin: 20px auto;
+        padding: 0 12px;
+      }
+
+      .kpi-grid {
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      }
+
+      .kpi-card {
+        min-height: 94px;
+        padding: 14px 16px;
+      }
+
+      .dashboard-heading {
+        font-size: clamp(1.2rem, 5vw, 1.45rem);
+      }
+
+      #settings-view, #setup-view {
+        padding: 20px 14px;
+        border-radius: 14px;
+      }
+
+      .table-container {
+        border-radius: 14px;
+      }
+
+      .chat-model-select {
+        min-width: unset;
+        width: 100%;
+      }
+
+      .chat-transcript {
+        min-height: 250px;
+      }
+
+      .tabs {
+        gap: 1rem;
+      }
+
+      .tab {
+        font-size: 0.8rem;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .container {
+        margin: 12px auto;
+        padding: 0 8px;
+      }
+
+      .dashboard-header {
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      #settings-view, #setup-view {
+        padding: 16px 10px;
+        border-radius: 12px;
+      }
+
+      .table-container {
+        border-radius: 12px;
+      }
+
+      .table-header {
+        padding: 14px 12px;
+      }
+
+    }
+
+    /* Table Card */
+    .table-container {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px var(--shadow-color);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: auto;
+    }
+
+    th, td {
+      white-space: nowrap;
+      padding: 10px 12px;
+    }
+
+    th:first-child, td:first-child {
+      width: 40px;
+      text-align: center;
+    }
+
+    .table-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .table-title {
+      font-weight: 600;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .search-bar {
+      flex: 1;
+      position: relative;
+      max-width: 400px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--input-bg-alt);
+      border: 1px solid transparent;
+      padding: 8px 16px 8px 36px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      background: var(--input-bg);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 24px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      background: var(--chat-bg);
+    }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    /* Filter Bar */
+    .filter-bar {
+      display: none;
+      gap: 16px;
+      padding: 12px 24px;
+      background: var(--chat-bg);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .filter-bar.visible {
+      display: flex;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-right: 16px;
+      border-right: 1px solid var(--border);
+    }
+
+    .filter-group:last-child {
+      border-right: none;
+      padding-right: 0;
+    }
+
+    .filter-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      min-width: 120px;
+    }
+
+    .filter-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .filter-shortcut {
+      font-size: 0.65rem;
+      color: var(--accent);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .filter-shortcut:hover {
+      text-decoration: underline;
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .checkbox-group::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .checkbox-group::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    .cb-label {
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .cb-label input {
+      margin: 0;
+      cursor: pointer;
+    }
+
+    th.sortable:hover {
+      color: var(--text);
+    }
+
+    th.sort-active {
+      color: var(--accent);
+    }
+
+    .sort-arrow {
+      display: inline-block;
+      margin-left: 4px;
+      opacity: 0.4;
+      font-style: normal;
+      font-size: 0.6rem;
+      vertical-align: middle;
+    }
+
+    th.sort-active .sort-arrow {
+      opacity: 1;
+    }
+
+    td {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.875rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    @media (max-width: 640px) {
+      .table-wrap table {
+        table-layout: auto;
+        min-width: 720px;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .table-wrap th,
+      .table-wrap td {
+        padding: 8px;
+        font-size: 0.8rem;
+      }
+    }
+
+    /* Custom Elements */
+    .tier-badge {
+      font-weight: 700;
+      font-size: 0.7rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: var(--input-bg-alt);
+      border: 1px solid transparent;
+    }
+
+    .tier-S\+ {
+      background: var(--tier-splus-bg);
+      color: var(--tier-splus-text);
+      border-color: var(--tier-splus-border);
+    }
+
+    .tier-S {
+      background: var(--tier-s-bg);
+      color: var(--tier-s-text);
+      border-color: var(--tier-s-border);
+    }
+
+    .tier-A\+ {
+      background: var(--tier-aplus-bg);
+      color: var(--tier-aplus-text);
+      border-color: var(--tier-aplus-border);
+    }
+
+    .tier-A {
+      background: var(--tier-a-bg);
+      color: var(--tier-a-text);
+      border-color: var(--tier-a-border);
+    }
+
+    .tier-B {
+      background: var(--tier-b-bg);
+      color: var(--tier-b-text);
+      border-color: var(--tier-b-border);
+    }
+
+    .tier-C {
+      background: var(--tier-c-bg);
+      color: var(--tier-c-text);
+      border-color: var(--tier-c-border);
+    }
+
+    .progress-pill {
+      width: 80px;
+      height: 6px;
+      background: var(--surface-alt);
+      border-radius: 999px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background: var(--success);
+      border-radius: 999px;
+      transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .ping-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      vertical-align: middle;
+      margin-right: 6px;
+      position: relative;
+    }
+
+    .ping-dot.anim-fast {
+      background: var(--success);
+    }
+
+    .ping-dot.anim-medium {
+      background: var(--warning);
+    }
+
+    .ping-dot.anim-slow {
+      background: var(--error);
+    }
+
+    .ping-dot.active::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 50%;
+      background: inherit;
+      animation: ping-pulse var(--speed, 3s) ease-out infinite;
+    }
+
+    @keyframes ping-pulse {
+      0% {
+        transform: scale(1);
+        opacity: 0.45;
+      }
+
+      100% {
+        transform: scale(2.5);
+        opacity: 0;
+      }
+    }
+
+    .expand-btn {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+
+    .expand-btn:hover {
+      background: var(--surface-alt);
+    }
+
+    /* Switch Component */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--border-subtle);
+      transition: .4s;
+      border-radius: 20px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: var(--input-bg);
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider {
+      background-color: var(--accent);
+    }
+
+    input:focus+.slider {
+      box-shadow: 0 0 1px var(--accent);
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(16px);
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    /* Settings UI */
+    .provider-section {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .provider-section:last-child {
+      border-bottom: none;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    .form-group input[type="password"] {
+      width: 100%;
+      padding: 0.75rem;
+      background: var(--input-bg-alt);
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: var(--text);
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    .form-group input[type="password"]:focus {
+      background: var(--input-bg);
+      border-color: var(--accent);
+    }
+
+    .autoupdate-panel {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px;
+      background: linear-gradient(135deg, var(--panel-gradient-start) 0%, var(--panel-gradient-end) 100%);
+      box-shadow: 0 8px 22px var(--shadow-color);
+      overflow: hidden;
+    }
+
+    .autoupdate-panel::after {
+      content: "";
+      position: absolute;
+      inset: auto -35% -60% auto;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, var(--panel-decor), transparent);
+      pointer-events: none;
+    }
+
+    .autoupdate-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .autoupdate-title {
+      margin: 0;
+      font-size: 1.02rem;
+      letter-spacing: -0.01em;
+    }
+
+    .autoupdate-subtitle {
+      margin-top: 4px;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      max-width: 62ch;
+      line-height: 1.45;
+    }
+
+    .autoupdate-status-pill {
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .autoupdate-status-pill.on {
+      color: var(--status-success-text);
+      background: var(--status-success-bg);
+      border-color: var(--status-success-border);
+    }
+
+    .autoupdate-status-pill.off {
+      color: var(--status-neutral-text);
+      background: var(--status-neutral-bg);
+      border-color: var(--status-neutral-border);
+    }
+
+    .autoupdate-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .autoupdate-toggle-label,
+    .autoupdate-interval-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 0.84rem;
+    }
+
+    .autoupdate-toggle-label {
+      cursor: pointer;
+    }
+
+    .autoupdate-interval-label input {
+      width: 92px;
+      padding: 7px 9px;
+      border-radius: 8px;
+      border: 1px solid var(--status-neutral-border);
+      background: var(--input-bg);
+      color: var(--text);
+      box-sizing: border-box;
+      outline: none;
+    }
+
+    .autoupdate-interval-label input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    }
+
+    .autoupdate-save-status {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      min-height: 1em;
+    }
+
+    .autoupdate-save-status.success {
+      color: var(--status-success-text);
+    }
+
+    .autoupdate-save-status.error {
+      color: var(--status-error-text);
+    }
+
+    .autoupdate-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .autoupdate-stat {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 10px;
+      min-height: 54px;
+    }
+
+    .autoupdate-stat-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .autoupdate-stat-value {
+      font-size: 0.82rem;
+      color: var(--text);
+      line-height: 1.35;
+      word-break: break-word;
+      font-weight: 600;
+    }
+
+    .autoupdate-stat-value.error {
+      color: var(--status-error-text);
+      font-weight: 700;
+    }
+
+    /* Drawer/Slide-over */
+    #drawer {
+      position: fixed;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 450px;
+      max-width: 100vw;
+      box-sizing: border-box;
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      box-shadow: -20px 0 60px var(--drawer-shadow);
+      transform: translateX(100%);
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1000;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    #drawer.open {
+      transform: translateX(0);
+    }
+
+    .drawer-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--modal-overlay);
+      backdrop-filter: blur(2px);
+      z-index: 999;
+      display: none;
+    }
+
+    .drawer-overlay.active {
+      display: block;
+    }
+
+    .btn {
+      background: var(--accent);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+
+    /* Pin Model */
+    .pin-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--status-info-bg);
+      color: var(--status-info-text);
+      border: 1px solid var(--status-info-border);
+      white-space: nowrap;
+    }
+
+    /* Hover pin icon on table rows — always sized to prevent row height shifts */
+    .pin-row-btn {
+      visibility: hidden;
+      cursor: pointer;
+      font-size: 0.75rem;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      opacity: 0.5;
+      transition: opacity 0.15s, background 0.15s;
+      user-select: none;
+    }
+
+    .pin-row-btn:hover {
+      opacity: 1;
+      background: var(--surface-alt);
+    }
+
+    .pin-row-btn.pinned,
+    tr:hover .pin-row-btn {
+      visibility: visible;
+    }
+
+    .pin-row-btn.pinned {
+      opacity: 1;
+    }
+
+    /* Collapsible log cards */
+    .log-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px var(--shadow-color);
+      overflow: hidden;
+    }
+
+    .log-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 16px;
+      cursor: pointer;
+      user-select: none;
+      gap: 12px;
+    }
+
+    .log-card-header:hover {
+      background: var(--surface-hover);
+    }
+
+    .log-chevron {
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    .log-card.expanded .log-chevron {
+      transform: rotate(90deg);
+    }
+
+    .log-card-body {
+      display: none;
+      padding: 0 16px 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .log-card.expanded .log-card-body {
+      display: block;
+    }
+
+    .logs-mode-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      overflow: hidden;
+      background: var(--input-bg);
+    }
+
+    .logs-mode-btn {
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    .logs-mode-btn.active {
+      background: var(--surface-alt);
+      color: var(--text);
+    }
+    .update-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--update-badge-bg);
+      color: var(--update-badge-text);
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid var(--update-badge-border);
+    }
+
+    .update-badge:hover {
+      background: var(--update-badge-hover);
+      transform: translateY(-1px);
+    }
+
+    #update-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--overlay-bg);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .progress-container {
+      width: 100%;
+      max-width: 400px;
+      height: 8px;
+      background: var(--progress-bg);
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 20px 0;
+      border: 1px solid var(--border);
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .update-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--spinner-track);
+      border-top: 3px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 20px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .provider-model-refresh-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      background: var(--input-bg-alt);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+    }
+
+    .provider-model-refresh-btn:hover {
+      background: var(--surface-hover);
+      border-color: var(--border-subtle);
+    }
+
+    .provider-model-refresh-btn:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+
+    .provider-model-refresh-btn svg {
+      width: 13px;
+      height: 13px;
+    }
+
+    .provider-model-refresh-btn.is-loading svg {
+      animation: spin 1s linear infinite;
+    }
+
+    .sync-result-list {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 360px;
+      overflow: auto;
+    }
+
+    .sync-result-list li {
+      color: var(--text);
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="local-file-warning" style="display:none; margin:16px auto 0; width:min(1100px, calc(100vw - 32px)); background:var(--status-warning-bg); border:1px solid var(--status-warning-border); color:var(--status-warning-text); border-radius:12px; padding:12px 14px; font-size:0.84rem; line-height:1.5;">
+    This dashboard is being opened as a static <code>file://</code> page. Use <b>http://localhost:7352</b> instead so provider actions and OAuth callbacks can talk to the running ModelRelay server.
+  </div>
+  <div id="update-overlay">
+    <div class="update-spinner"></div>
+    <h2 style="margin: 0 0 10px;">Updating ModelRelay</h2>
+    <p id="update-status-text" style="color: var(--text-muted); margin-bottom: 20px;">Downloading and installing update...</p>
+    <div class="progress-container">
+      <div id="update-progress-bar" class="progress-bar"></div>
+    </div>
+    <p id="update-percent-text" style="font-weight: 700; font-size: 1.25rem;">1%</p>
+  </div>
+
+  <div class="drawer-overlay" id="overlay" onclick="closeDrawer()"></div>
+  <div class="drawer-overlay" id="provider-sync-overlay" onclick="closeProviderSyncModal()" style="display:none;"></div>
+
+  <div class="container">
+    <div class="dashboard-header">
+      <div>
+        <p class="dashboard-eyebrow">Router Control Center</p>
+        <h1 class="dashboard-heading">Dashboard</h1>
+        <p class="dashboard-subtitle">Live model telemetry, provider health, and routing controls in one place.
+        </p>
+        <p style="margin: 8px 0 0; color: var(--text-muted); font-size: 0.78rem; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <span>Version <span id="dashboard-version">Loading...</span></span>
+          <span id="update-pill" style="display:none;"></span>
+          <button id="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode" style="background: var(--surface-alt); border: 1px solid var(--border); cursor: pointer; padding: 4px 8px; border-radius: 6px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 4px; color: var(--text);">
+            <span id="theme-icon">🌙</span>
+          </button>
+        </p>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <svg class="kpi-bg-svg" id="bg-current-svg" preserveAspectRatio="xMidYMid slice"></svg>
+        <div class="kpi-content">
+          <div class="kpi-label">
+            Current Model
+            <svg class="signal-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+          </div>
+          <div class="kpi-value" id="kpi-best">Calculating...</div>
+          <div style="margin-top:6px; min-height:20px;">
+            <span class="pin-badge" id="pin-badge" style="display:none; cursor:pointer;" onclick="pinModel('')"
+              title="Click to unpin">📌 Pinned ×</span>
+          </div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <svg class="kpi-bg-svg" id="bg-models-svg" preserveAspectRatio="xMidYMid slice"></svg>
+        <div class="kpi-content">
+          <div class="kpi-label">
+            Models Online
+            <svg class="signal-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+          </div>
+          <div class="kpi-value" id="kpi-active">0</div>
+        </div>
+      </div>
+      <div class="kpi-card">
+        <svg class="kpi-bg-svg" id="bg-providers-svg" preserveAspectRatio="xMidYMid slice"></svg>
+        <div class="kpi-content">
+          <div class="kpi-label">
+            Providers Online
+            <svg class="signal-icon" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+          </div>
+          <div class="kpi-value" id="kpi-providers">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" id="tab-models" onclick="switchTab('models')">Live Telemetry</div>
+      <div class="tab" id="tab-chat" onclick="switchTab('chat')">Chat</div>
+      <div class="tab" id="tab-logs" onclick="switchTab('logs')">Request Logs</div>
+      <div class="tab" id="tab-status" onclick="switchTab('status')">Account Status</div>
+      <div class="tab" id="tab-settings" onclick="switchTab('settings')">Settings</div>
+      <div class="tab" id="tab-setup" onclick="switchTab('setup')">Setup Instructions</div>
+    </div>
+
+    <div id="models-view">
+      <div class="table-container">
+        <div class="table-header">
+          <div class="table-title">Models</div>
+          <div class="search-bar">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input type="text" class="search-input" id="search-input"
+              placeholder="Search models, providers, or tiers..." oninput="handleSearch()">
+          </div>
+          <div style="display:flex; align-items:center; gap:20px; flex-shrink: 0;">
+            <button onclick="toggleFilterBar()"
+              style="display:flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--input-bg); cursor:pointer; font-size:0.8rem; color:var(--text); padding:6px 12px; border-radius:6px; transition:all 0.15s; font-weight:500;"
+              onmouseover="this.style.background='var(--surface-alt)'" onmouseout="this.style.background='var(--input-bg)'">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+              </svg>
+              Filters
+            </button>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div id="hover-pause-badge"
+                style="display:none; background:var(--warning); color:#1a0a00; padding:4px 8px; border-radius:6px; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; align-items:center; gap:4px;">
+                ⏸ Paused on hover</div>
+              <span style="font-size:0.8rem; color:var(--text-muted); cursor:pointer; user-select:none;"
+                onclick="document.getElementById('live-sort-toggle').click()">Live Sort</span>
+              <label class="switch">
+                <input type="checkbox" id="live-sort-toggle" checked onchange="render(true)">
+                <span class="slider"></span>
+              </label>
+            </div>
+            <button id="sort-reset-btn" onclick="resetSort()"
+              style="display:none; border:none; background:none; cursor:pointer; font-size:0.8rem; color:var(--text-muted); padding:4px 8px; border-radius:6px; white-space:nowrap; transition:all 0.15s;"
+              onmouseover="this.style.background='var(--surface-alt)';this.style.color='var(--text)'"
+              onmouseout="this.style.background='none';this.style.color='var(--text-muted)'">&#x2715; Reset
+              sort</button>
+          </div>
+        </div>
+
+        <div class="filter-bar">
+
+
+          <div class="filter-group">
+            <div class="filter-header">
+              <span class="filter-label">Provider</span>
+              <span class="filter-shortcut" onclick="toggleAll('filter-provider-group')">(All/None)</span>
+            </div>
+            <div class="checkbox-group" id="filter-provider-group">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <div class="filter-header">
+              <span class="filter-label">Ping</span>
+              <span class="filter-shortcut" onclick="toggleAll('filter-ping-group')">(All/None)</span>
+            </div>
+            <div class="checkbox-group" id="filter-ping-group">
+              <label class="cb-label"><input type="checkbox" value="fast" checked onchange="render(true)"> Fast
+                (&lt;400ms)</label>
+              <label class="cb-label"><input type="checkbox" value="medium" checked onchange="render(true)"> Medium
+                (400-1199ms)</label>
+              <label class="cb-label"><input type="checkbox" value="slow" checked onchange="render(true)"> Slow
+                (&ge;1200ms)</label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <div class="filter-header">
+              <span class="filter-label">Availability</span>
+              <span class="filter-shortcut" onclick="toggleAll('filter-avail-group')">(All/None)</span>
+            </div>
+            <div class="checkbox-group" id="filter-avail-group">
+              <label class="cb-label"><input type="checkbox" value="excellent" checked onchange="render(true)">
+                Excellent (&ge;95%)</label>
+              <label class="cb-label"><input type="checkbox" value="good" checked onchange="render(true)"> Good
+                (85-94%)</label>
+              <label class="cb-label"><input type="checkbox" value="poor" checked onchange="render(true)"> Poor
+                (&lt;85%)</label>
+            </div>
+          </div>
+
+          <div class="filter-group">
+            <div class="filter-header">
+              <span class="filter-label">Status</span>
+              <span class="filter-shortcut" onclick="toggleAll('filter-status-group')">(All/None)</span>
+            </div>
+            <div class="checkbox-group" id="filter-status-group">
+              <label class="cb-label"><input type="checkbox" value="up" checked onchange="render(true)"> Up</label>
+              <label class="cb-label"><input type="checkbox" value="down" checked onchange="render(true)"> Down</label>
+              <label class="cb-label"><input type="checkbox" value="disabled" checked onchange="render(true)">
+                Disabled</label>
+              <label class="cb-label"><input type="checkbox" value="excluded" checked onchange="render(true)">
+                Excluded</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+        <table onmouseenter="isTableHovered=true; document.getElementById('hover-pause-badge').style.display='flex';"
+          onmouseleave="isTableHovered=false; document.getElementById('hover-pause-badge').style.display='none';">
+          <thead>
+            <tr>
+              <th></th>
+              <th class="sortable" onclick="setSort('model')" id="th-model">Model <i class="sort-arrow"
+                  id="arrow-model">↕</i></th>
+              <th class="sortable" onclick="setSort('qos')" id="th-qos">QoS <i class="sort-arrow"
+                  id="arrow-qos">↕</i></th>
+              <th class="sortable" onclick="setSort('intell')" id="th-intell">SWE% <i class="sort-arrow"
+                  id="arrow-intell">↕</i></th>
+              <th class="sortable text-right" onclick="setSort('ping')" id="th-ping">Ping <i
+                  class="sort-arrow" id="arrow-ping">↕</i></th>
+              <th class="sortable text-right" onclick="setSort('availability')" id="th-availability">
+                Availability <i class="sort-arrow" id="arrow-availability">↕</i></th>
+              <th class="sortable" onclick="setSort('status')" id="th-status">Status <i class="sort-arrow"
+                  id="arrow-status">↕</i></th>
+            </tr>
+          </thead>
+          <tbody id="table-body">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="settings-view" style="display: none;">
+      <h2 style="margin-top: 0; font-size: 1.25rem;">Settings</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.25rem; font-size: 0.875rem;">Manage router update behavior and provider credentials.</p>
+      <div id="autoupdate-container" class="provider-section">
+        <!-- Auto-update settings generated here -->
+      </div>
+      <h3 style="margin: 2rem 0 0.25rem; font-size: 1rem;">Auto-Ping</h3>
+      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Control whether the router automatically pings models on a schedule to track their health and speed.</p>
+      <div id="autoping-container" class="provider-section">
+        <!-- Auto-ping settings generated here -->
+      </div>
+      <h3 style="margin: 2rem 0 0.25rem; font-size: 1rem;">Pinning</h3>
+      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Choose whether pinning locks one exact provider model or the whole canonical model family across providers.</p>
+      <div id="pinning-settings-container" class="provider-section">
+        <!-- Pinning settings generated here -->
+      </div>
+      <h3 style="margin: 0 0 0.25rem; font-size: 1rem;">Ping Filtering Exceptions</h3>
+      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Exclude models from pinging and routing based on criteria.</p>
+      <div id="filter-rules-container">
+        <!-- Filter rules UI generated here -->
+      </div>
+      <h3 style="margin: 2rem 0 0.25rem; font-size: 1rem;">Providers</h3>
+      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Configure API keys to enable models from different providers.</p>
+      <div style="margin-bottom: 1rem;">
+        <button id="refresh-all-btn" onclick="refreshAllProviders()" style="border: 1px solid var(--border); background: var(--input-bg); color: var(--text); cursor: pointer; padding: 8px 16px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"></path><polyline points="21 3 21 9 15 9"></polyline></svg>
+          Refresh All Providers
+        </button>
+        <span id="refresh-all-status" style="margin-left: 10px; font-size: 0.78rem; color: var(--text-muted);"></span>
+      </div>
+      <div id="providers-container" class="autoupdate-panel">
+        <!-- Settings generated here -->
+      </div>
+      <h3 style="margin: 2rem 0 0.25rem; font-size: 1rem;">Configuration Transfer</h3>
+      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Export/import all settings (including API keys) as a single encoded token for copy/paste migration.</p>
+      <div id="config-transfer-container">
+        <div class="autoupdate-panel">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+            <button class="btn" style="padding:8px 14px;" onclick="exportConfigTokenToBox()">Export</button>
+            <button class="btn" style="padding:8px 14px;" onclick="copyConfigTokenFromBox()">Copy</button>
+            <button class="btn" style="padding:8px 14px; background:var(--status-success-bg); border-color:var(--status-success-border); color:var(--status-success-text);" onclick="importConfigTokenFromBox()">Import</button>
+          </div>
+          <textarea id="config-transfer-payload" spellcheck="false" placeholder="Paste exported config token here..." style="width:100%; min-height:95px; box-sizing:border-box; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.78rem; line-height:1.4; resize:vertical; background:var(--card);"></textarea>
+          <div id="config-transfer-status" class="autoupdate-save-status" style="margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="logs-view" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div>
+          <h2 style="margin: 0; font-size: 1.25rem;">Recent Requests</h2>
+          <p style="color: var(--text-muted); margin: 4px 0 0; font-size: 0.875rem;">Last 50 requests proxied through
+            the router.</p>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+          <div class="logs-mode-toggle" role="tablist" aria-label="Logs view mode">
+            <button id="logs-mode-cards" class="logs-mode-btn" onclick="setLogsViewMode('cards')" role="tab"
+              aria-selected="false">Request Cards</button>
+            <button id="logs-mode-history" class="logs-mode-btn active" onclick="setLogsViewMode('history')" role="tab"
+              aria-selected="true">Message History</button>
+          </div>
+          <button id="logs-pause-toggle" onclick="toggleLogsAutoRefresh()" class="btn"
+            style="background: var(--input-bg); color: var(--text); border: 1px solid var(--border);">Pause Live Updates</button>
+          <button onclick="loadLogs(true)" class="btn"
+            style="background: var(--input-bg); color: var(--text); border: 1px solid var(--border);">Refresh Logs</button>
+        </div>
+      </div>
+      <div id="logs-container" style="display: flex; flex-direction: column; gap: 16px;">
+        <!-- Logs generated here -->
+      </div>
+    </div>
+
+    <div id="status-view" style="display: none;">
+      <div class="table-container">
+        <div class="table-header">
+          <div class="table-title">Account Status</div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <button onclick="loadAccountStatus()" class="btn" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border);">Refresh</button>
+          </div>
+        </div>
+        <div id="account-status-body">
+          <div style="padding:32px; text-align:center; color:var(--text-muted);">Loading account status...</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="chat-view" style="display: none;">
+      <div class="chat-layout">
+        <div class="chat-toolbar">
+          <div>
+            <h2 style="margin: 0; font-size: 1.25rem;">Chat</h2>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <label for="chat-model-select" style="font-size:0.76rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">Model</label>
+            <select id="chat-model-select" class="chat-model-select" onchange="onChatModelChange()">
+              <option value="auto-fastest">Auto (Fastest Available)</option>
+            </select>
+            <button id="chat-clear-btn" class="btn" style="background: var(--input-bg); color: var(--text); border: 1px solid var(--border);" onclick="clearChat()">Clear Chat</button>
+          </div>
+        </div>
+        <div id="chat-transcript" class="chat-transcript">
+          <div class="chat-empty">
+            Start a conversation. Press Enter to send and Shift+Enter for a newline.
+          </div>
+        </div>
+        <div id="chat-typing-indicator" class="chat-typing" aria-live="polite">
+          <span>Assistant is thinking</span>
+          <span class="chat-typing-dot"></span>
+          <span class="chat-typing-dot"></span>
+          <span class="chat-typing-dot"></span>
+        </div>
+        <div class="chat-composer">
+          <textarea id="chat-input" class="chat-input" placeholder="Type your message..." onkeydown="handleChatInputKeydown(event)"></textarea>
+          <div class="chat-actions">
+            <div id="chat-status" class="chat-status"></div>
+            <button id="chat-send-btn" class="btn chat-send-btn" onclick="sendChatMessage()">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="setup-view" style="display: none;">
+      <h2 style="margin-top: 0; font-size: 1.25rem;">Setup Instructions</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.875rem;">Configure OpenClaw and OpenCode
+        (Opencode) to use this router.</p>
+
+      <div class="setup-grid">
+        <div class="setup-card">
+          <h3>OpenClaw</h3>
+
+          <div class="setup-method">
+            <p class="setup-method-title">Automatic</p>
+            <ol class="setup-steps">
+              <li>Run <code>modelrelay onboard</code>.</li>
+              <li>When asked <code>Auto-configure OpenClaw now? [Y/n]</code>, answer <code>Y</code>.</li>
+              <li>Start the router with <code>modelrelay</code>.</li>
+            </ol>
+          </div>
+
+          <div class="setup-method">
+            <p class="setup-method-title">Manual</p>
+            <div style="font-size:0.83rem; color:var(--text-muted);">Merge this into
+              <code>~/.openclaw/openclaw.json</code>:
+            </div>
+            <pre class="setup-snippet">{
+  "models": {
+    "providers": {
+      "modelrelay": {
+        "baseUrl": "http://127.0.0.1:7352/v1",
+        "api": "openai-completions"
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "modelrelay/auto-fastest"
+      },
+      "models": {
+        "modelrelay/auto-fastest": {}
+      }
+    }
+  }
+}</pre>
+          </div>
+        </div>
+
+        <div class="setup-card">
+          <h3>OpenCode (Opencode)</h3>
+
+          <div class="setup-method">
+            <p class="setup-method-title">Automatic</p>
+            <ol class="setup-steps">
+              <li>Run <code>modelrelay onboard</code>.</li>
+              <li>When asked <code>Auto-configure OpenCode now? [Y/n]</code>, answer <code>Y</code>.</li>
+              <li>Start the router with <code>modelrelay</code>.</li>
+            </ol>
+          </div>
+
+          <div class="setup-method">
+            <p class="setup-method-title">Manual</p>
+            <div style="font-size:0.83rem; color:var(--text-muted);">Put this in
+              <code>~/.config/opencode/opencode.json</code>:
+            </div>
+            <pre class="setup-snippet">{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "router": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "modelrelay",
+      "options": {
+        "baseURL": "http://127.0.0.1:7352/v1",
+        "apiKey": "dummy-key"
+      },
+      "models": {
+        "auto-fastest": {
+          "name": "Auto Fastest"
+        }
+      }
+    }
+  },
+  "model": "router/auto-fastest"
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="drawer">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px;">
+      <h2 id="drawer-title" style="margin: 0; font-size: 1.25rem;">Model Details</h2>
+      <button onclick="closeDrawer()"
+        style="border: none; background: var(--surface-alt); cursor: pointer; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">&times;</button>
+    </div>
+    <div id="drawer-content"></div>
+  </div>
+
+  <div id="provider-sync-modal" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); width:min(720px, calc(100vw - 32px)); max-height:min(80vh, 760px); background:var(--card); border:1px solid var(--border); border-radius:18px; box-shadow:0 24px 80px rgba(15, 23, 42, 0.22); z-index:1001; overflow:hidden;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding:20px 22px 14px; border-bottom:1px solid var(--border);">
+      <div>
+        <div id="provider-sync-title" style="font-size:1.05rem; font-weight:700; color:var(--text);">Provider Model Refresh</div>
+        <div id="provider-sync-subtitle" style="font-size:0.82rem; color:var(--text-muted); margin-top:4px;"></div>
+      </div>
+      <button onclick="closeProviderSyncModal()" style="border:none; background:var(--surface-alt); cursor:pointer; width:32px; height:32px; border-radius:999px; font-size:1.2rem; line-height:1;">&times;</button>
+    </div>
+    <div id="provider-sync-body" style="padding:18px 22px 22px; overflow:auto; max-height:calc(80vh - 84px);"></div>
+  </div>
+
+  <script>
+    // Theme toggle
+    (function() {
+      const saved = localStorage.getItem('modelrelay-theme');
+      if (saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    })();
+
+    function toggleTheme() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (isDark) {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('modelrelay-theme', 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('modelrelay-theme', 'dark');
+      }
+      updateThemeIcon();
+    }
+
+    function updateThemeIcon() {
+      const icon = document.getElementById('theme-icon');
+      if (!icon) return;
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      icon.textContent = isDark ? '☀️' : '🌙';
+    }
+
+    function updateLocalFileWarning() {
+      const warning = document.getElementById('local-file-warning');
+      if (!warning) return;
+      warning.style.display = window.location.protocol === 'file:' ? 'block' : 'none';
+    }
+
+    // Run on DOMContentLoaded to ensure button exists
+    document.addEventListener('DOMContentLoaded', updateThemeIcon);
+    document.addEventListener('DOMContentLoaded', updateLocalFileWarning);
 
     let allModels = [];
     let searchTerm = '';
@@ -10,19 +2184,22 @@ import './styles.css';
     let activePinnedProviderKey = null;
     let activePinnedRowKeys = []; // resolved pinned rows from server/client
     let pinningMode = 'canonical';
-    window.isTableHovered = false;
+    let isTableHovered = false;
     let metaLoaded = false;
     let logsViewMode = 'history';
     let logsAutoRefreshPaused = false;
     const PROVIDER_ERROR_MAX_AGE_MS = 120 * 60_000;
-    let qwenOauthSessionId = null;
-    let qwenOauthPollTimer = null;
     let filterRules = { minSweScore: null, excludedProviders: [] };
+    let providerRefreshInFlight = new Set();
+    let kiroDeviceAuthState = null;
+    let kiroDevicePollTimer = null;
+    let kiroBrowserAuthState = null;
+    let kiroUiMessage = null;
     let chatMessages = [];
     let chatInFlight = false;
     let chatSelectedModel = 'auto-fastest';
-    const CHAT_STORAGE_KEY = 'modelfoundry-chat-v1';
-    const CHAT_MODEL_STORAGE_KEY = 'modelfoundry-chat-model-v1';
+    const CHAT_STORAGE_KEY = 'modelrelay-chat-v1';
+    const CHAT_MODEL_STORAGE_KEY = 'modelrelay-chat-model-v1';
     const MODEL_ID_ALIASES = {
       'mimo-v2-omni-free': 'xiaomi/mimo-v2-omni:free',
     };
@@ -36,6 +2213,7 @@ import './styles.css';
       document.getElementById('models-view').style.display = tab === 'models' ? 'block' : 'none';
       document.getElementById('chat-view').style.display = tab === 'chat' ? 'block' : 'none';
       document.getElementById('logs-view').style.display = tab === 'logs' ? 'block' : 'none';
+      document.getElementById('status-view').style.display = tab === 'status' ? 'block' : 'none';
       document.getElementById('settings-view').style.display = tab === 'settings' ? 'block' : 'none';
       document.getElementById('setup-view').style.display = tab === 'setup' ? 'block' : 'none';
 
@@ -46,6 +2224,8 @@ import './styles.css';
       } else if (tab === 'chat') {
         renderChatTranscript();
         scrollChatToBottom();
+      } else if (tab === 'status') {
+        loadAccountStatus();
       }
     }
 
@@ -674,7 +2854,7 @@ import './styles.css';
     }
 
     function render(isUserAction = false) {
-      if (!isUserAction && window.isTableHovered) return; // Pause updates if hovering over table
+      if (!isUserAction && isTableHovered) return; // Pause updates if hovering over table
       const tbody = document.getElementById('table-body');
 
       // 1. Apply Search
@@ -1055,7 +3235,7 @@ import './styles.css';
           <div class="autoupdate-header">
             <div>
               <h3 class="autoupdate-title">Auto-Update</h3>
-              <div class="autoupdate-subtitle">Keep ModelFoundry fresh automatically with periodic npm checks and safe background restarts.</div>
+              <div class="autoupdate-subtitle">Keep modelrelay fresh automatically with periodic npm checks and safe background restarts.</div>
             </div>
             <span id="autoupdate-pill" class="autoupdate-status-pill ${enabled ? 'on' : 'off'}">${stateText}</span>
           </div>
@@ -1101,6 +3281,88 @@ import './styles.css';
       `;
     }
 
+    function renderAutoPingSettings(autoPing) {
+      const container = document.getElementById('autoping-container');
+      if (!container) return;
+      const enabled = autoPing.enabled !== false;
+
+      container.innerHTML = `
+        <div class="autoupdate-panel">
+          <div class="autoupdate-header">
+            <div>
+              <h3 class="autoupdate-title">Auto-Ping</h3>
+              <div class="autoupdate-subtitle">When enabled, the router periodically pings all models to track health and latency. Disable to save bandwidth and only ping on demand.</div>
+            </div>
+            <span class="autoupdate-status-pill ${enabled ? 'on' : 'off'}">${enabled ? 'On' : 'Off'}</span>
+          </div>
+          <div class="autoupdate-controls">
+            <label class="autoupdate-toggle-label">
+              <input type="checkbox" id="autoping-enabled" ${enabled ? 'checked' : ''}>
+              Enable auto-ping
+            </label>
+            <button class="btn" onclick="saveAutoPingSettings()">Save Changes</button>
+            <span id="autoping-save-status" class="autoupdate-save-status"></span>
+          </div>
+        </div>
+      `;
+    }
+
+    async function saveAutoPingSettings() {
+      const enabled = document.getElementById('autoping-enabled').checked;
+      const statusEl = document.getElementById('autoping-save-status');
+      try {
+        const res = await fetch('/api/auto-ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled }),
+        });
+        if (!res.ok) throw new Error('Failed to save.');
+        statusEl.textContent = 'Saved!';
+        statusEl.style.color = 'var(--success)';
+        setTimeout(() => { statusEl.textContent = ''; }, 2000);
+        await loadSettings();
+      } catch (err) {
+        statusEl.textContent = err.message || 'Failed to save.';
+        statusEl.style.color = 'var(--error)';
+      }
+    }
+
+    async function refreshAllProviders() {
+      const btn = document.getElementById('refresh-all-btn');
+      const statusEl = document.getElementById('refresh-all-status');
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.style.opacity = '0.6';
+      statusEl.textContent = 'Refreshing all providers...';
+
+      try {
+        const res = await fetch('/api/providers/refresh-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Refresh failed.');
+
+        const succeeded = data.providers.filter(p => p.success).length;
+        const failed = data.providers.filter(p => !p.success).length;
+        const parts = [];
+        if (succeeded > 0) parts.push(`${succeeded} succeeded`);
+        if (failed > 0) parts.push(`${failed} failed`);
+        statusEl.textContent = parts.join(', ') + '.';
+        statusEl.style.color = failed > 0 ? 'var(--warning)' : 'var(--success)';
+
+        await fetchData();
+        await loadSettings();
+      } catch (err) {
+        statusEl.textContent = err.message || 'Refresh failed.';
+        statusEl.style.color = 'var(--error)';
+      } finally {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        setTimeout(() => { statusEl.textContent = ''; }, 5000);
+      }
+    }
+
     function renderPinningSettings(pinningState) {
       const container = document.getElementById('pinning-settings-container');
       if (!container) return;
@@ -1116,14 +3378,14 @@ import './styles.css';
               <div style="margin-top:6px; color:var(--text-muted); font-size:0.82rem;">Canonical pins route to the best matching provider for that model family. Exact pins lock to the specific provider row you clicked.</div>
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
-              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; background:${mode === 'canonical' ? '#eff6ff' : '#fff'}; border:1px solid ${mode === 'canonical' ? '#bfdbfe' : 'var(--border)'}; border-radius:10px; padding:10px 12px; max-width:320px;">
+              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; background:${mode === 'canonical' ? 'var(--status-info-bg)' : 'var(--input-bg)'}; border:1px solid ${mode === 'canonical' ? 'var(--status-info-border)' : 'var(--border)'}; border-radius:10px; padding:10px 12px; max-width:320px;">
                 <input type="radio" name="pinning-mode" value="canonical" ${mode === 'canonical' ? 'checked' : ''} onchange="updatePinningMode('canonical')">
                 <span>
                   <span style="display:block; font-weight:700; font-size:0.82rem;">Canonical Group</span>
                   <span style="display:block; color:var(--text-muted); font-size:0.76rem; margin-top:3px;">Default. Pin the same model across providers and route to the best available match.</span>
                 </span>
               </label>
-              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; background:${mode === 'exact' ? '#eff6ff' : '#fff'}; border:1px solid ${mode === 'exact' ? '#bfdbfe' : 'var(--border)'}; border-radius:10px; padding:10px 12px; max-width:320px;">
+              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; background:${mode === 'exact' ? 'var(--status-info-bg)' : 'var(--input-bg)'}; border:1px solid ${mode === 'exact' ? 'var(--status-info-border)' : 'var(--border)'}; border-radius:10px; padding:10px 12px; max-width:320px;">
                 <input type="radio" name="pinning-mode" value="exact" ${mode === 'exact' ? 'checked' : ''} onchange="updatePinningMode('exact')">
                 <span>
                   <span style="display:block; font-weight:700; font-size:0.82rem;">Exact Provider Row</span>
@@ -1162,7 +3424,7 @@ import './styles.css';
       const excludedProviders = filterRules.excludedProviders || [];
 
       const providerCheckboxes = providers.map(p => `
-        <label style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 8px; cursor: pointer; font-size: 0.875rem;">
+        <label style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--input-bg-alt); border-radius: 8px; cursor: pointer; font-size: 0.875rem;">
           <input type="checkbox" class="excluded-provider-checkbox" value="${escapeHtml(p.key)}" ${excludedProviders.includes(p.key) ? 'checked' : ''}>
           ${escapeHtml(p.name)}
         </label>
@@ -1216,6 +3478,82 @@ import './styles.css';
       providerGroup.querySelectorAll('input[type="checkbox"]').forEach(cb => {
         cb.checked = selected.size === 0 || selected.has(cb.value);
       });
+    }
+
+    function closeProviderSyncModal() {
+      const overlay = document.getElementById('provider-sync-overlay');
+      const modal = document.getElementById('provider-sync-modal');
+      if (overlay) overlay.style.display = 'none';
+      if (modal) modal.style.display = 'none';
+    }
+
+    function openProviderSyncModal(title, subtitle, bodyHtml) {
+      const overlay = document.getElementById('provider-sync-overlay');
+      const modal = document.getElementById('provider-sync-modal');
+      const titleEl = document.getElementById('provider-sync-title');
+      const subtitleEl = document.getElementById('provider-sync-subtitle');
+      const bodyEl = document.getElementById('provider-sync-body');
+      if (!overlay || !modal || !titleEl || !subtitleEl || !bodyEl) return;
+      titleEl.textContent = title;
+      subtitleEl.textContent = subtitle || '';
+      bodyEl.innerHTML = bodyHtml || '';
+      overlay.style.display = 'block';
+      modal.style.display = 'block';
+    }
+
+    function formatSyncScore(model) {
+      if (typeof model?.intell !== 'number' || !Number.isFinite(model.intell)) return 'Unknown';
+      return `${Math.round(model.intell * 100)}%${model.isEstimatedScore ? ' estimated' : ''}`;
+    }
+
+    function renderProviderSyncSuccess(providerName, models) {
+      const count = models.length;
+      const items = models
+        .slice()
+        .sort((a, b) => (a.label || a.modelId || '').localeCompare(b.label || b.modelId || ''))
+        .map(model => `<li><b>${escapeHtml(model.label || model.modelId)}</b><br><span style="color:var(--text-muted);">${escapeHtml(model.modelId)} • ${escapeHtml(model.ctx || '128k')} • SWE ${escapeHtml(formatSyncScore(model))}</span></li>`)
+        .join('');
+
+      openProviderSyncModal(
+        `${providerName} Model Sync`,
+        `${count} model${count === 1 ? '' : 's'} returned`,
+        count > 0
+          ? `<ol class="sync-result-list">${items}</ol>`
+          : `<div style="font-size:0.84rem; color:var(--text-muted);">The provider returned no models.</div>`
+      );
+    }
+
+    function renderProviderSyncError(providerName, errorMessage) {
+      openProviderSyncModal(
+        `${providerName} Model Sync`,
+        'Refresh failed',
+        `<div style="padding:14px 16px; background:var(--status-error-bg); border:1px solid var(--status-error-border); border-radius:12px; color:var(--status-error-text); font-size:0.84rem; line-height:1.5; white-space:pre-wrap; word-break:break-word;">${escapeHtml(errorMessage || 'Unknown error.')}</div>`
+      );
+    }
+
+    async function refreshProviderModels(key, providerName) {
+      if (!key || providerRefreshInFlight.has(key)) return;
+      providerRefreshInFlight.add(key);
+      await loadSettings();
+
+      try {
+        const res = await fetch(`/api/providers/${encodeURIComponent(key)}/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) {
+          throw new Error(data.error || `Failed to refresh ${providerName} models.`);
+        }
+
+        await fetchData();
+        renderProviderSyncSuccess(providerName, Array.isArray(data.models) ? data.models : []);
+      } catch (err) {
+        renderProviderSyncError(providerName, err.message || `Failed to refresh ${providerName} models.`);
+      } finally {
+        providerRefreshInFlight.delete(key);
+        await loadSettings();
+      }
     }
 
     async function saveFilterRules() {
@@ -1321,22 +3659,39 @@ import './styles.css';
 
     async function loadSettings() {
       try {
-        const [providersRes, autoUpdateRes, filterRulesRes, pinningRes] = await Promise.all([
+        const [providersRes, autoUpdateRes, filterRulesRes, pinningRes, autoPingRes] = await Promise.all([
           fetch('/api/config'),
           fetch('/api/autoupdate'),
           fetch('/api/filter-rules'),
           fetch('/api/pinning'),
+          fetch('/api/auto-ping'),
         ]);
         const providers = await providersRes.json();
         const autoUpdate = await autoUpdateRes.json();
         const filterRules = await filterRulesRes.json();
         const pinning = await pinningRes.json();
+        const autoPing = await autoPingRes.json();
         renderAutoUpdateSettings(autoUpdate);
+        renderAutoPingSettings(autoPing);
         renderPinningSettings(pinning);
         renderFilterRules(filterRules, providers);
         renderProviderFilterGroup(providers);
         const container = document.getElementById('providers-container');
         container.innerHTML = '';
+
+        const addEndpointSection = document.createElement('div');
+        addEndpointSection.className = 'provider-section';
+        addEndpointSection.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:0.5rem; flex-wrap:wrap;">
+            <h3 style="margin:0; font-size:1rem;">OpenAI-Compatible endpoints</h3>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button onclick="addHermesProxyEndpoint()" style="border:1px solid var(--status-info-border); background:var(--status-info-bg); color:var(--status-info-text); cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:600;">Add Hermes Proxy</button>
+              <button onclick="addOpenAICompatibleEndpoint()" style="border:1px solid var(--status-success-border); background:var(--status-success-bg); color:var(--status-success-text); cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.8rem; font-weight:600;">+ Add Endpoint</button>
+            </div>
+          </div>
+          <div style="font-size:0.78rem; color:var(--text-muted);">Configure one or more upstream OpenAI-compatible endpoints (vLLM, llama.cpp, custom relays, etc.). Each endpoint exposes a single model id. Hermes Proxy uses a local <code>hermes proxy</code> endpoint and is optional for public/general deployments.</div>
+        `;
+        container.appendChild(addEndpointSection);
 
         providers.sort((a, b) => {
           if (a.hasKey && !b.hasKey) return -1;
@@ -1368,8 +3723,8 @@ import './styles.css';
 
           const tokenOptional = p.supportsOptionalBearerAuth === true;
           const statusIcon = p.hasKey ? '✅' : (tokenOptional ? 'ℹ️' : '⚠️');
-          const statusColor = p.hasKey ? '#065f46' : (tokenOptional ? '#1e40af' : '#92400e');
-          const statusBg = p.hasKey ? '#ecfdf5' : (tokenOptional ? '#eff6ff' : '#fffbeb');
+          const statusColor = p.hasKey ? 'var(--status-success-text)' : (tokenOptional ? 'var(--status-info-text)' : 'var(--status-warning-text)');
+          const statusBg = p.hasKey ? 'var(--status-success-bg)' : (tokenOptional ? 'var(--status-info-bg)' : 'var(--status-warning-bg)');
           const statusText = p.hasKey
             ? (tokenOptional ? 'API Key configured' : 'Key configured')
             : (tokenOptional ? 'API Key optional' : 'No API key');
@@ -1387,7 +3742,7 @@ import './styles.css';
               : '';
             const creditResetLine = rl.creditResetAt ? `<span>Credit reset: <b>${fmtTime(rl.creditResetAt) ?? 'unknown'}</b></span>` : '';
             rateLimitHtml = `
-              <div style="margin-top:12px; padding:10px 12px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; font-size:0.78rem;">
+              <div style="margin-top:12px; padding:10px 12px; background:var(--input-bg-alt); border:1px solid var(--border); border-radius:8px; font-size:0.78rem;">
                 <div style="font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; font-size:0.7rem;">Rate Limits (last prompt)</div>
                 <div style="display:flex; gap:16px; flex-wrap:wrap;">
                   ${rl.limitRequests != null ? `<span>Requests: <b>${fmtNum(rl.remainingRequests ?? '?')}</b> / ${fmtNum(rl.limitRequests)} remaining</span>` : ''}
@@ -1405,28 +3760,37 @@ import './styles.css';
               ? errorUpdated.toLocaleString()
               : 'unknown time';
             providerErrorHtml = `
-              <div style="margin-top:12px; padding:10px 12px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; font-size:0.78rem; color:#7f1d1d;">
-                <div style="font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; font-size:0.7rem; color:#991b1b;">Latest Provider Error</div>
+              <div style="margin-top:12px; padding:10px 12px; background:var(--status-error-bg); border:1px solid var(--status-error-border); border-radius:8px; font-size:0.78rem; color:var(--status-error-text);">
+                <div style="font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; font-size:0.7rem; color:var(--status-error-text);">Latest Provider Error</div>
                 <div style="word-break:break-word;"><b>${escapeHtml(errorModel.modelId)}</b>: ${escapeHtml(providerError.message)}</div>
-                <div style="margin-top:6px; color:#b91c1c;">HTTP ${escapeHtml(providerError.code || '?')} • ${escapeHtml(errorWhen)}</div>
+                <div style="margin-top:6px; color:var(--status-error-text);">HTTP ${escapeHtml(providerError.code || '?')} • ${escapeHtml(errorWhen)}</div>
               </div>`;
           }
 
-          const openAiCompatibleFieldsHtml = p.key === 'openai-compatible' ? `
+          const showsBaseUrlFields = p.isOpenAICompatibleInstance || p.key === 'ollama';
+          const baseUrlPlaceholder = p.key === 'ollama' ? 'https://ollama.com/v1' : 'https://your-endpoint.example/v1';
+          const baseUrlNote = p.isOpenAICompatibleInstance
+            ? 'Set the upstream base URL for this endpoint. The model id below is optional — leave blank if discovery returns the models you need.'
+            : 'Set the upstream base URL and exact model ID for this provider. If base URL is blank, modelrelay uses https://ollama.com/v1 and expects an OLLAMA_API_KEY.';
+          const openAiCompatibleFieldsHtml = showsBaseUrlFields ? `
             <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-              <input type="text" id="base-url-${p.key}" value="${escapeHtml(p.baseUrl || '')}" placeholder="https://your-endpoint.example/v1" style="flex:1;" onblur="updateProviderBaseUrl('${p.key}')">
+              <input type="text" id="base-url-${p.key}" value="${escapeHtml(p.baseUrl || '')}" placeholder="${baseUrlPlaceholder}" style="flex:1;" onblur="updateProviderBaseUrl('${p.key}')">
             </div>
             <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-              <input type="text" id="model-id-${p.key}" value="${escapeHtml(p.modelId || '')}" placeholder="upstream-model-id" style="flex:1;" onblur="updateProviderModelId('${p.key}')">
+              <input type="text" id="model-id-${p.key}" value="${escapeHtml(p.modelId || '')}" placeholder="upstream-model-id (optional if discovery is on)" style="flex:1;" onblur="updateProviderModelId('${p.key}')">
             </div>
-            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Set the upstream base URL and exact model ID for this provider.</div>
-          ` : '';
-
-          const qwenAuthActionsHtml = p.key === 'qwencode' ? `
-            <div style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <button onclick="startQwenOAuthLogin()" style="border:1px solid var(--border); background:#fff; cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Login with Qwen Code</button>
-              <span id="qwencode-login-status" style="font-size:0.75rem; color:var(--text-muted);"></span>
-            </div>
+            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">${baseUrlNote}</div>
+            ${p.isOpenAICompatibleInstance ? `
+              <div style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; cursor:pointer;">
+                  <input type="checkbox" id="discover-${p.key}" ${p.discoverModels !== false ? 'checked' : ''} onchange="updateProviderDiscoverModels('${p.key}')">
+                  Discover models from <code>/v1/models</code>
+                </label>
+              </div>
+              <div style="margin-top:10px; display:flex; justify-content:flex-end;">
+                <button onclick="removeOpenAICompatibleEndpoint('${escapeHtml(p.openAICompatibleInstanceId)}', ${JSON.stringify(p.name)})" style="border:1px solid var(--status-error-border); background:var(--status-error-bg); color:var(--status-error-text); cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Remove Endpoint</button>
+              </div>
+            ` : ''}
           ` : '';
 
           const optionalBearerAuthHtml = (tokenOptional && p.hasKey) ? `
@@ -1439,13 +3803,129 @@ import './styles.css';
           ` : '';
 
           const section = document.createElement('div');
+          const isRefreshing = providerRefreshInFlight.has(p.key);
           section.className = 'provider-section';
+          if (p.key === 'kiro') {
+            const kiroStatusOk = p.hasKey;
+            const kiroStatusBg = kiroStatusOk ? 'var(--status-success-bg)' : 'var(--status-warning-bg)';
+            const kiroStatusColor = kiroStatusOk ? 'var(--status-success-text)' : 'var(--status-warning-text)';
+            const kiroProviderLabel = p.authProvider === 'github' ? 'GitHub' : 'Google';
+            let kiroStatusText = 'No refresh token';
+            if (p.authMode === 'builder-id') {
+              kiroStatusText = p.authEmail
+                ? `AWS Builder ID · ${p.authEmail}`
+                : 'AWS Builder ID connected';
+            } else if (p.authMode === 'browser-oauth') {
+              kiroStatusText = p.authEmail
+                ? `Browser OAuth · ${p.authEmail}`
+                : `Browser OAuth via ${kiroProviderLabel}`;
+            } else if (kiroStatusOk) {
+              kiroStatusText = 'Refresh token configured';
+            }
+
+            const kiroMessageHtml = kiroUiMessage
+              ? `<div id="kiro-ui-message" style="margin-top:12px; padding:10px 12px; border-radius:8px; font-size:0.8rem; border:1px solid ${kiroUiMessage.tone === 'error' ? 'var(--status-error-border)' : kiroUiMessage.tone === 'success' ? 'var(--status-success-border)' : 'var(--border)'}; background:${kiroUiMessage.tone === 'error' ? 'var(--status-error-bg)' : kiroUiMessage.tone === 'success' ? 'var(--status-success-bg)' : 'var(--input-bg-alt)'}; color:${kiroUiMessage.tone === 'error' ? 'var(--status-error-text)' : kiroUiMessage.tone === 'success' ? 'var(--status-success-text)' : 'var(--text)'};">${escapeHtml(kiroUiMessage.text)}</div>`
+              : '<div id="kiro-ui-message" style="display:none;"></div>';
+
+            const kiroDeviceAuthHtml = kiroDeviceAuthState ? `
+              <div style="margin-top:14px; padding:12px 14px; background:var(--input-bg-alt); border:1px solid var(--border); border-radius:10px;">
+                <div style="font-size:0.82rem; font-weight:700; color:var(--text); margin-bottom:6px;">AWS Builder ID authorization in progress</div>
+                <div style="font-size:0.76rem; color:var(--text-muted); margin-bottom:10px;">Approve the request in the opened browser window, or open the verification link below on another device and enter the code.</div>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                  <input type="text" id="kiro-device-verify-url" readonly value="${escapeHtml(kiroDeviceAuthState.verificationUriComplete || kiroDeviceAuthState.verificationUri || '')}" style="flex:1; background:var(--input-bg); color:var(--text); font-size:0.76rem;">
+                  <button onclick="copyKiroDeviceVerificationUrl()" style="border:1px solid var(--border); background:var(--input-bg); color:var(--text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600; white-space:nowrap;">Copy Link</button>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+                  <div style="padding:8px 12px; border-radius:8px; border:1px dashed var(--border-subtle); background:var(--card); color:var(--text); font-size:0.85rem; font-weight:700; letter-spacing:0.08em;">${escapeHtml(kiroDeviceAuthState.userCode || '')}</div>
+                  <button onclick="copyKiroDeviceUserCode()" style="border:1px solid var(--border); background:var(--input-bg); color:var(--text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Copy Code</button>
+                  <span style="font-size:0.74rem; color:var(--text-muted);">Polling every ${escapeHtml(String(kiroDeviceAuthState.interval || 5))}s</span>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                  <button data-verify-url="${escapeHtml(kiroDeviceAuthState.verificationUriComplete || '')}" onclick="window.open(this.dataset.verifyUrl || '', 'kiro_builder_id_verify')" style="border:1px solid var(--status-success-border); background:var(--status-success-bg); color:var(--status-success-text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Open Verification Page</button>
+                  <button onclick="cancelKiroDeviceAuth()" style="border:1px solid var(--border); background:var(--input-bg); color:var(--text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Cancel</button>
+                </div>
+              </div>
+            ` : '';
+
+            const kiroBrowserAuthHtml = kiroBrowserAuthState ? `
+              <div style="margin-top:14px; padding:12px 14px; background:var(--input-bg-alt); border:1px solid var(--border); border-radius:10px;">
+                <div style="font-size:0.82rem; font-weight:700; color:var(--text); margin-bottom:6px;">Browser OAuth (${kiroBrowserAuthState.provider === 'github' ? 'GitHub' : 'Google'})</div>
+                <div style="font-size:0.76rem; color:var(--text-muted); margin-bottom:10px;">After approval, the popup may end on a blank or unsupported page because Kiro redirects to a <code>kiro://</code> URL. Copy that full URL from the address bar and paste it below.</div>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                  <input type="text" id="kiro-auth-url" readonly value="${escapeHtml(kiroBrowserAuthState.authUrl)}" style="flex:1; background:var(--input-bg); color:var(--text); font-size:0.76rem;">
+                  <button onclick="copyKiroAuthUrl()" style="border:1px solid var(--border); background:var(--input-bg); color:var(--text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600; white-space:nowrap;">Copy Link</button>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+                  <input type="text" id="kiro-callback-url" placeholder="kiro://kiro.kiroAgent/authenticate-success?code=..." style="flex:1; background:var(--input-bg); color:var(--text); font-size:0.76rem;">
+                </div>
+                <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                  <button onclick="completeKiroBrowserAuth()" style="border:1px solid var(--status-success-border); background:var(--status-success-bg); color:var(--status-success-text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Connect Account</button>
+                  <button onclick="cancelKiroBrowserAuth()" style="border:1px solid var(--border); background:var(--input-bg); color:var(--text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Cancel</button>
+                </div>
+              </div>
+            ` : '';
+
+            section.innerHTML = `
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem;">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                  <span style="background:${kiroStatusBg}; color:${kiroStatusColor}; border-radius:999px; padding:2px 10px; font-size:0.75rem; font-weight:600;">${kiroStatusOk ? '✅' : '⚠️'} ${escapeHtml(kiroStatusText)}</span>
+                  <h3 style="margin:0; font-size:1rem;">${p.name}</h3>
+                  <button class="provider-model-refresh-btn ${isRefreshing ? 'is-loading' : ''}" ${isRefreshing ? 'disabled' : ''} onclick='refreshProviderModels(${JSON.stringify(p.key)}, ${JSON.stringify(p.name)})' title="Refresh provider models">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                      <polyline points="21 3 21 9 15 9"></polyline>
+                    </svg>
+                    <span>${isRefreshing ? 'Refreshing…' : `${modelCount} model${modelCount !== 1 ? 's' : ''}`}</span>
+                  </button>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; cursor:pointer;">
+                    <input type="checkbox" id="enable-${p.key}" ${p.enabled ? 'checked' : ''} onchange="updateProvider('${p.key}')">
+                    Enabled
+                  </label>
+                </div>
+              </div>
+              <div style="font-size:0.82rem; color:var(--text-muted); margin:0 0 12px 0;">Connect Kiro with AWS Builder ID device authorization, import a token from the AWS SSO cache, or paste a refresh token manually.</div>
+              <div style="margin:0 0 12px 0; padding:10px 12px; background:var(--status-info-bg); border:1px solid var(--status-info-border); border-radius:8px; color:var(--status-info-text); font-size:0.78rem; line-height:1.45;">
+                Recommended: <b>AWS Builder ID</b>. It opens the AWS verification page and waits for approval, which is the same supported Kiro path OmniRoute uses. This avoids the broken <code>kiro://</code> browser handoff.
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+                <button onclick="startKiroBuilderIdAuth()" style="border:1px solid var(--status-success-border); background:var(--status-success-bg); color:var(--status-success-text); cursor:pointer; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:600;">Connect with AWS Builder ID</button>
+                <button onclick="autoImportKiroToken()" style="border:1px solid var(--status-success-border); background:var(--status-success-bg); color:var(--status-success-text); cursor:pointer; padding:8px 12px; border-radius:8px; font-size:0.78rem; font-weight:600;">Auto-import from AWS cache</button>
+              </div>
+              <div class="form-group" style="display:flex; gap:8px; align-items:center;">
+                <input type="password" id="key-${p.key}" placeholder="${p.hasKey ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (Refresh Token Configured)' : 'Paste Kiro refresh token...'}" style="flex:1; background:var(--input-bg); color:var(--text);" onkeydown="if(event.key==='Enter'){event.preventDefault(); saveKiroRefreshToken();}">
+                <button onclick="const i=document.getElementById('key-${p.key}'); i.type=i.type==='password'?'text':'password'; this.textContent=i.type==='password'?'👁':'🙈';" style="border:1px solid var(--border); background:var(--input-bg); color:var(--text); cursor:pointer; padding:8px 10px; border-radius:6px; font-size:0.85rem; white-space:nowrap;">👁</button>
+                <button onclick="saveKiroRefreshToken()" style="border:1px solid var(--status-success-border); background:var(--status-success-bg); color:var(--status-success-text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; white-space:nowrap;">Save Token</button>
+                ${p.hasKey ? `<button onclick="deleteProviderKey('${p.key}')" style="border:1px solid var(--status-error-border); background:var(--status-error-bg); color:var(--status-error-text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; white-space:nowrap;">Delete Token</button>` : ''}
+              </div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:6px;">ModelRelay stores the resulting Kiro refresh token locally in your ModelRelay config. Auto-import/manual token are still useful if Kiro is already signed in on this machine.</div>
+              ${kiroDeviceAuthHtml}
+              ${kiroBrowserAuthHtml}
+              ${kiroMessageHtml}
+              <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:12px;">
+                <span style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap;">Ping interval (min):</span>
+                <input type="number" id="ping-interval-${p.key}" min="1" step="1" value="${p.pingIntervalMinutes || ''}" placeholder="30" style="width:70px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:0.8rem; background:var(--input-bg); color:var(--text);" onchange="updateProviderPingInterval('${p.key}')">
+                <span style="font-size:0.75rem; color:var(--text-muted);">(default: 30)</span>
+              </div>
+              ${providerErrorHtml}
+              ${rateLimitHtml}
+            `;
+            container.appendChild(section);
+            return;
+          }
           section.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem;">
               <div style="display:flex; align-items:center; gap:10px;">
                 <span style="background:${statusBg}; color:${statusColor}; border-radius:999px; padding:2px 10px; font-size:0.75rem; font-weight:600;">${statusIcon} ${statusText}</span>
                 <h3 style="margin:0; font-size:1rem;">${p.name}</h3>
-                ${modelCount > 0 ? `<span style="background:#f3f2f1; color:var(--text-muted); border-radius:999px; padding:2px 8px; font-size:0.72rem; font-weight:600;">${modelCount} model${modelCount !== 1 ? 's' : ''}</span>` : ''}
+                <button class="provider-model-refresh-btn ${isRefreshing ? 'is-loading' : ''}" ${isRefreshing ? 'disabled' : ''} onclick='refreshProviderModels(${JSON.stringify(p.key)}, ${JSON.stringify(p.name)})' title="Refresh provider models">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                    <polyline points="21 3 21 9 15 9"></polyline>
+                  </svg>
+                  <span>${isRefreshing ? 'Refreshing…' : `${modelCount} model${modelCount !== 1 ? 's' : ''}`}</span>
+                </button>
                 ${p.signupUrl ? `<a href="${p.signupUrl}" target="_blank" rel="noopener noreferrer" style="font-size:0.78rem; color:var(--accent); text-decoration:none; font-weight:600;">Get API key</a>` : ''}
               </div>
               <div style="display:flex; align-items:center; gap:10px;">
@@ -1456,18 +3936,44 @@ import './styles.css';
               </div>
             </div>
             <div class="form-group" style="display:flex; gap:8px; align-items:center;">
-              <input type="password" id="key-${p.key}" placeholder="${p.hasKey ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (' + (tokenOptional ? 'API Key Configured' : 'Key Configured') + ')' : (tokenOptional ? 'Enter API Key (optional)...' : 'Enter API Key...')}" style="flex:1;" onblur="updateProviderKey('${p.key}')">
-              <button onclick="const i=document.getElementById('key-${p.key}'); i.type=i.type==='password'?'text':'password'; this.textContent=i.type==='password'?'👁':'🙈';" style="border:1px solid var(--border); background:white; cursor:pointer; padding:8px 10px; border-radius:6px; font-size:0.85rem; white-space:nowrap;">👁</button>
-              ${p.hasKey ? `<button onclick="deleteProviderKey('${p.key}')" style="border:1px solid #fecaca; background:#fff1f2; color:#b91c1c; cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; white-space:nowrap;">Delete Key</button>` : ''}
+              <input type="password" id="key-${p.key}" placeholder="${p.hasKey ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (' + (tokenOptional ? 'API Key Configured' : 'Key Configured') + ')' : (tokenOptional ? 'Enter API Key (optional)...' : 'Enter API Key...')}" style="flex:1; background:var(--input-bg); color:var(--text);" onblur="updateProviderKey('${p.key}')">
+              <button onclick="const i=document.getElementById('key-${p.key}'); i.type=i.type==='password'?'text':'password'; this.textContent=i.type==='password'?'👁':'🙈';" style="border:1px solid var(--border); background:var(--input-bg); color:var(--text); cursor:pointer; padding:8px 10px; border-radius:6px; font-size:0.85rem; white-space:nowrap;">👁</button>
+              ${p.hasKey ? `<button onclick="deleteProviderKey('${p.key}')" style="border:1px solid var(--status-error-border); background:var(--status-error-bg); color:var(--status-error-text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; white-space:nowrap;">Delete Key</button>` : ''}
             </div>
             <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
               <span style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap;">Ping interval (min):</span>
-              <input type="number" id="ping-interval-${p.key}" min="1" step="1" value="${p.pingIntervalMinutes || ''}" placeholder="30" style="width:70px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:0.8rem;" onchange="updateProviderPingInterval('${p.key}')">
+              <input type="number" id="ping-interval-${p.key}" min="1" step="1" value="${p.pingIntervalMinutes || ''}" placeholder="30" style="width:70px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:0.8rem; background:var(--input-bg); color:var(--text);" onchange="updateProviderPingInterval('${p.key}')">
               <span style="font-size:0.75rem; color:var(--text-muted);">(default: 30)</span>
             </div>
+            ${(Array.isArray(p.apiKeyPool) && p.apiKeyPool.length > 0) ? `
+            <div style="margin-top:14px; padding:12px 14px; background:var(--input-bg-alt); border:1px solid var(--border); border-radius:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <span style="font-size:0.8rem; font-weight:700; color:var(--text);">Accounts (${p.apiKeyPool.length})</span>
+                <span style="font-size:0.7rem; color:var(--text-muted);">${p.apiKeyPool.length > 1 ? 'Round-robin active' : 'Add one more key to enable round-robin'}</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+                ${p.apiKeyPool.map((acct, i) => `
+                  <div style="display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--input-bg); border:1px solid var(--border-subtle); border-radius:6px; font-size:0.78rem;">
+                    <span style="font-weight:700; color:var(--text-muted); min-width:20px;">[${i}]</span>
+                    <span style="font-family:monospace; color:var(--text); flex:1;">${escapeHtml(acct.masked)}</span>
+                    <span id="acct-status-${p.key}-${i}" style="font-size:0.7rem;"></span>
+                    <button onclick="removeAccountKey('${p.key}', ${i})" style="border:1px solid var(--status-error-border); background:var(--status-error-bg); color:var(--status-error-text); cursor:pointer; padding:2px 8px; border-radius:4px; font-size:0.7rem; font-weight:600;">Remove</button>
+                  </div>
+                `).join('')}
+              </div>
+              <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+                <input type="password" id="new-key-${p.key}" placeholder="Add new account key..." style="flex:1; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:0.78rem; background:var(--input-bg); color:var(--text);">
+                <button onclick="addAccountKey('${p.key}')" style="border:1px solid var(--status-success-border); background:var(--status-success-bg); color:var(--status-success-text); cursor:pointer; padding:6px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Add Account</button>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <span style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap;">Max turns per account:</span>
+                <input type="number" id="maxturns-${p.key}" min="0" step="1" value="${p.maxTurns || 0}" style="width:70px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; font-size:0.78rem;" onchange="updateProviderMaxTurns('${p.key}')">
+                <span style="font-size:0.72rem; color:var(--text-muted);">0 = unlimited</span>
+              </div>
+            </div>
+            ` : ''}
             ${optionalBearerAuthHtml}
             ${openAiCompatibleFieldsHtml}
-            ${qwenAuthActionsHtml}
             ${providerErrorHtml}
             ${rateLimitHtml}
           `;
@@ -1521,6 +4027,73 @@ import './styles.css';
       await fetchData();
     }
 
+    async function addOpenAICompatibleEndpoint() {
+      const name = prompt('Endpoint name (e.g. "my-vllm")');
+      if (!name || !name.trim()) return;
+      const baseUrl = prompt('Base URL (e.g. https://your-host/v1)') || '';
+      const modelId = prompt('Upstream model id (optional — leave blank to rely on /v1/models discovery)') || '';
+      const apiKey = prompt('API key (leave blank if not required)') || '';
+      const resp = await fetch('/api/openai-compatible/endpoints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), baseUrl: baseUrl.trim(), modelId: modelId.trim(), apiKey: apiKey.trim() || null })
+      });
+      if (!resp.ok) {
+        let msg = `HTTP ${resp.status}`;
+        try { const body = await resp.json(); if (body && body.error) msg = body.error; } catch {}
+        alert(`Could not add endpoint: ${msg}`);
+        return;
+      }
+      await loadSettings();
+      await fetchData();
+    }
+
+    async function addHermesProxyEndpoint(overwrite = false) {
+      const resp = await fetch('/api/openai-compatible/endpoints/presets/hermes-proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overwrite })
+      });
+      if (resp.status === 409 && !overwrite) {
+        if (confirm('Hermes Proxy endpoint already exists. Refresh it with the preset defaults?')) {
+          return addHermesProxyEndpoint(true);
+        }
+        return;
+      }
+      if (!resp.ok) {
+        let msg = `HTTP ${resp.status}`;
+        try { const body = await resp.json(); if (body && body.error) msg = body.error; } catch {}
+        alert(`Could not add Hermes Proxy endpoint: ${msg}`);
+        return;
+      }
+      await loadSettings();
+      await fetchData();
+    }
+
+    async function updateProviderDiscoverModels(key) {
+      const cb = document.getElementById(`discover-${key}`);
+      const discoverModels = cb ? !!cb.checked : true;
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerKey: key, discoverModels })
+      });
+      await fetchData();
+    }
+
+    async function removeOpenAICompatibleEndpoint(id, name) {
+      if (!confirm(`Remove endpoint "${name}"?`)) return;
+      const resp = await fetch(`/api/openai-compatible/endpoints/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!resp.ok) {
+        let msg = `HTTP ${resp.status}`;
+        try { const body = await resp.json(); if (body && body.error) msg = body.error; } catch {}
+        alert(`Could not remove endpoint: ${msg}`);
+        return;
+      }
+      await loadSettings();
+      await fetchData();
+    }
+
     async function updateProviderModelId(key) {
       const input = document.getElementById(`model-id-${key}`);
       const modelId = input ? input.value.trim() : '';
@@ -1549,6 +4122,149 @@ import './styles.css';
       });
     }
 
+    async function addAccountKey(providerKey) {
+      const input = document.getElementById(`new-key-${providerKey}`);
+      if (!input) return;
+      const val = input.value.trim();
+      if (!val) return;
+      try {
+        const res = await fetch('/api/config');
+        const providers = await res.json();
+        const p = providers.find(pr => pr.key === providerKey);
+        if (!p) return;
+        let newPool;
+        if (Array.isArray(p.apiKeyPool) && p.apiKeyPool.length > 0) {
+          const existingKeys = p.apiKeyPool.map(a => a.key);
+          newPool = [...existingKeys, val];
+        } else {
+          newPool = [val];
+        }
+        await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ providerKey, apiKeys: newPool })
+        });
+        input.value = '';
+        await loadSettings();
+        await loadAccountStatus();
+      } catch (err) { console.error(err); }
+    }
+
+    async function removeAccountKey(providerKey, index) {
+      try {
+        const res = await fetch('/api/config');
+        const providers = await res.json();
+        const p = providers.find(pr => pr.key === providerKey);
+        if (!p || !Array.isArray(p.apiKeyPool)) return;
+        const newPool = p.apiKeyPool.map(a => a.key).filter((_, i) => i !== index);
+        if (newPool.length === 0) {
+          await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ providerKey, apiKeys: [] })
+          });
+        } else {
+          await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ providerKey, apiKeys: newPool })
+          });
+        }
+        await loadSettings();
+        await loadAccountStatus();
+      } catch (err) { console.error(err); }
+    }
+
+    async function updateProviderMaxTurns(providerKey) {
+      const input = document.getElementById(`maxturns-${providerKey}`);
+      if (!input) return;
+      const val = input.value.trim();
+      const parsed = Math.floor(Number(val));
+      const maxTurns = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+      await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ providerKey, maxTurns })
+      });
+    }
+
+    async function loadAccountStatus() {
+      const body = document.getElementById('account-status-body');
+      if (!body) return;
+      body.innerHTML = '<div style="padding:32px; text-align:center; color:var(--text-muted);">Loading account status...</div>';
+      try {
+        const [statusRes, configRes] = await Promise.all([
+          fetch('/api/account-status'),
+          fetch('/api/config')
+        ]);
+        const status = await statusRes.json();
+        const config = await configRes.json();
+        const providers = status.providers || {};
+        const providerNames = {};
+        for (const p of config) { providerNames[p.key] = p.name; }
+
+        const providerKeys = Object.keys(providers);
+        if (providerKeys.length === 0) {
+          body.innerHTML = '<div style="padding:32px; text-align:center; color:var(--text-muted);">No multi-account providers configured.<br><br>Add multiple API keys to a provider to enable round-robin.</div>';
+          return;
+        }
+
+        let html = `<table style="width:100%;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:12px 24px; font-size:0.75rem; color:var(--text-muted); font-weight:600; background:var(--chat-bg);">Provider</th>
+              <th style="text-align:left; padding:12px 24px; font-size:0.75rem; color:var(--text-muted); font-weight:600; background:var(--chat-bg);">Account</th>
+              <th style="text-align:left; padding:12px 24px; font-size:0.75rem; color:var(--text-muted); font-weight:600; background:var(--chat-bg);">Status</th>
+              <th style="text-align:right; padding:12px 24px; font-size:0.75rem; color:var(--text-muted); font-weight:600; background:var(--chat-bg);">Requests</th>
+              <th style="text-align:right; padding:12px 24px; font-size:0.75rem; color:var(--text-muted); font-weight:600; background:var(--chat-bg);">Max Turns</th>
+              <th style="text-align:center; padding:12px 24px; font-size:0.75rem; color:var(--text-muted); font-weight:600; background:var(--chat-bg);">Next</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+        for (const [key, info] of Object.entries(providers)) {
+          const name = providerNames[key] || key;
+          const maxTurns = info.maxTurns || 0;
+          for (const acct of info.accounts) {
+            const isRateLimited = acct.rateLimited;
+            const hitMaxTurns = maxTurns > 0 && acct.requests >= maxTurns;
+            let statusIcon = '🟢';
+            let statusColor = 'var(--status-success-text)';
+            let statusBg = 'var(--status-success-bg)';
+            let statusText = 'Active';
+            if (isRateLimited) {
+              statusIcon = '🔴';
+              statusColor = 'var(--status-error-text)';
+              statusBg = 'var(--status-error-bg)';
+              statusText = 'Rate Limited';
+            } else if (hitMaxTurns) {
+              statusIcon = '🟡';
+              statusColor = 'var(--status-warning-text)';
+              statusBg = 'var(--status-warning-bg)';
+              statusText = 'Cooling';
+            }
+            const isNext = acct.index === info.currentIdx;
+            html += `<tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:14px 24px; font-size:0.875rem; font-weight:600;">${escapeHtml(name)}</td>
+              <td style="padding:14px 24px; font-size:0.875rem;">
+                <span style="font-family:monospace; background:var(--surface-alt); padding:2px 6px; border-radius:4px; font-size:0.78rem;">[${acct.index}] ${escapeHtml(acct.masked)}</span>
+              </td>
+              <td style="padding:14px 24px;">
+                <span style="background:${statusBg}; color:${statusColor}; border-radius:999px; padding:2px 10px; font-size:0.72rem; font-weight:700;">${statusIcon} ${statusText}</span>
+              </td>
+              <td style="padding:14px 24px; text-align:right; font-size:0.875rem; font-weight:600; font-variant-numeric:tabular-nums;">${acct.requests}</td>
+              <td style="padding:14px 24px; text-align:right; font-size:0.875rem; color:var(--text-muted);">${maxTurns > 0 ? maxTurns : 'unlimited'}</td>
+              <td style="padding:14px 24px; text-align:center; font-size:1.1rem;">${isNext ? '→' : ''}</td>
+            </tr>`;
+          }
+        }
+        html += '</tbody></table>';
+        body.innerHTML = html;
+      } catch (err) {
+        body.innerHTML = '<div style="padding:32px; text-align:center; color:var(--error);">Failed to load account status.</div>';
+      }
+    }
+
     async function updateProviderBearerAuth(key) {
       const input = document.getElementById(`bearer-auth-${key}`);
       if (!input) return;
@@ -1560,84 +4276,305 @@ import './styles.css';
       });
     }
 
-    function setQwenLoginStatus(message, isError = false) {
-      const statusEl = document.getElementById('qwencode-login-status');
-      if (!statusEl) return;
-      statusEl.style.color = isError ? 'var(--error)' : 'var(--text-muted)';
-      statusEl.textContent = message || '';
+    function setKiroUiMessage(text, tone = 'info') {
+      kiroUiMessage = text ? { text, tone } : null;
+      const el = document.getElementById('kiro-ui-message');
+      if (!el) return;
+      if (!kiroUiMessage) {
+        el.style.display = 'none';
+        el.textContent = '';
+        return;
+      }
+      el.style.display = 'block';
+      el.textContent = kiroUiMessage.text;
+      el.style.border = `1px solid ${tone === 'error' ? 'var(--status-error-border)' : tone === 'success' ? 'var(--status-success-border)' : 'var(--border)'}`;
+      el.style.background = tone === 'error' ? 'var(--status-error-bg)' : tone === 'success' ? 'var(--status-success-bg)' : 'var(--input-bg-alt)';
+      el.style.color = tone === 'error' ? 'var(--status-error-text)' : tone === 'success' ? 'var(--status-success-text)' : 'var(--text)';
+      el.style.marginTop = '12px';
+      el.style.padding = '10px 12px';
+      el.style.borderRadius = '8px';
+      el.style.fontSize = '0.8rem';
     }
 
-    async function pollQwenOAuthLoginStatus() {
-      if (!qwenOauthSessionId) return;
-      try {
-        const res = await fetch(`/api/qwencode/login/status?sessionId=${encodeURIComponent(qwenOauthSessionId)}`);
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || 'Failed to fetch Qwen OAuth login status.');
-        }
-
-        const data = await res.json();
-        if (data.status === 'authorized') {
-          setQwenLoginStatus('Qwen OAuth connected.');
-          if (qwenOauthPollTimer) {
-            clearInterval(qwenOauthPollTimer);
-            qwenOauthPollTimer = null;
-          }
-          qwenOauthSessionId = null;
-          loadSettings();
-          fetchData();
-          return;
-        }
-
-        if (data.status === 'error') {
-          setQwenLoginStatus(data.error || 'Qwen OAuth login failed.', true);
-          if (qwenOauthPollTimer) {
-            clearInterval(qwenOauthPollTimer);
-            qwenOauthPollTimer = null;
-          }
-          qwenOauthSessionId = null;
-          return;
-        }
-
-        if (data.status === 'expired') {
-          setQwenLoginStatus('Qwen login session expired. Click Login again.', true);
-          if (qwenOauthPollTimer) {
-            clearInterval(qwenOauthPollTimer);
-            qwenOauthPollTimer = null;
-          }
-          qwenOauthSessionId = null;
-          return;
-        }
-
-        setQwenLoginStatus('Waiting for Qwen authorization...');
-      } catch (err) {
-        setQwenLoginStatus(err.message || 'Failed to poll Qwen OAuth status.', true);
+    function clearKiroDevicePollTimer() {
+      if (kiroDevicePollTimer) {
+        clearTimeout(kiroDevicePollTimer);
+        kiroDevicePollTimer = null;
       }
     }
 
-    async function startQwenOAuthLogin() {
+    async function copyKiroDeviceVerificationUrl() {
+      const input = document.getElementById('kiro-device-verify-url');
+      const value = input ? input.value.trim() : '';
+      if (!value) return;
       try {
-        setQwenLoginStatus('Starting Qwen OAuth login...');
-        const res = await fetch('/api/qwencode/login/start', { method: 'POST' });
-        const data = await res.json();
+        await navigator.clipboard.writeText(value);
+        setKiroUiMessage('Copied the AWS Builder ID verification link.', 'success');
+      } catch {
+        setKiroUiMessage('Clipboard copy failed. Copy the AWS Builder ID verification link manually.', 'error');
+      }
+    }
+
+    async function copyKiroDeviceUserCode() {
+      const value = kiroDeviceAuthState && kiroDeviceAuthState.userCode ? kiroDeviceAuthState.userCode : '';
+      if (!value) return;
+      try {
+        await navigator.clipboard.writeText(value);
+        setKiroUiMessage('Copied the AWS Builder ID code.', 'success');
+      } catch {
+        setKiroUiMessage('Clipboard copy failed. Copy the AWS Builder ID code manually.', 'error');
+      }
+    }
+
+    function cancelKiroDeviceAuth() {
+      clearKiroDevicePollTimer();
+      kiroDeviceAuthState = null;
+      setKiroUiMessage('Cancelled AWS Builder ID authorization.', 'info');
+      loadSettings();
+    }
+
+    async function pollKiroBuilderIdAuth() {
+      if (!kiroDeviceAuthState) return;
+
+      const now = Date.now();
+      if (kiroDeviceAuthState.expiresAt && now >= kiroDeviceAuthState.expiresAt) {
+        clearKiroDevicePollTimer();
+        kiroDeviceAuthState = null;
+        setKiroUiMessage('AWS Builder ID authorization expired. Start it again to get a new code.', 'error');
+        await loadSettings();
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/oauth/kiro/poll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            flowId: kiroDeviceAuthState.flowId,
+          })
+        });
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(data.error || 'Failed to start Qwen OAuth login.');
+          throw new Error(data.error || 'Failed while polling AWS Builder ID authorization.');
         }
 
-        qwenOauthSessionId = data.sessionId;
-        if (data.verificationUriComplete) {
-          window.open(data.verificationUriComplete, '_blank', 'noopener,noreferrer');
+        if (data.success) {
+          clearKiroDevicePollTimer();
+          kiroDeviceAuthState = null;
+          setKiroUiMessage(data.email ? `Connected Kiro via AWS Builder ID as ${data.email}.` : 'Connected Kiro via AWS Builder ID.', 'success');
+          await loadSettings();
+          await fetchData();
+          return;
         }
 
-        const codeSuffix = data.userCode ? ` (code: ${data.userCode})` : '';
-        setQwenLoginStatus(`Complete login in browser${codeSuffix}`);
+        if (data.pending) {
+          const nextInterval = data.error === 'slow_down'
+            ? Math.max(5, Number(kiroDeviceAuthState.interval || 5) + 5)
+            : Math.max(5, Number(kiroDeviceAuthState.interval || 5));
+          kiroDeviceAuthState = { ...kiroDeviceAuthState, interval: nextInterval };
+          clearKiroDevicePollTimer();
+          kiroDevicePollTimer = setTimeout(() => {
+            pollKiroBuilderIdAuth().catch(err => {
+              setKiroUiMessage(err.message || 'Failed while polling AWS Builder ID authorization.', 'error');
+            });
+          }, nextInterval * 1000);
+          return;
+        }
 
-        if (qwenOauthPollTimer) clearInterval(qwenOauthPollTimer);
-        const pollMs = Number(data.pollIntervalMs) > 0 ? Number(data.pollIntervalMs) : 2000;
-        qwenOauthPollTimer = setInterval(pollQwenOAuthLoginStatus, pollMs);
-        pollQwenOAuthLoginStatus();
+        clearKiroDevicePollTimer();
+        kiroDeviceAuthState = null;
+        setKiroUiMessage(data.errorDescription || data.error || 'AWS Builder ID authorization failed.', 'error');
+        await loadSettings();
       } catch (err) {
-        setQwenLoginStatus(err.message || 'Failed to start Qwen OAuth login.', true);
+        clearKiroDevicePollTimer();
+        kiroDeviceAuthState = null;
+        setKiroUiMessage(err.message || 'Failed while polling AWS Builder ID authorization.', 'error');
+        await loadSettings();
+      }
+    }
+
+    async function startKiroBuilderIdAuth() {
+      clearKiroDevicePollTimer();
+      try {
+        setKiroUiMessage('Preparing AWS Builder ID authorization...', 'info');
+        const res = await fetch('/api/oauth/kiro/device-code');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || 'Failed to start AWS Builder ID authorization.');
+        }
+
+        kiroDeviceAuthState = {
+          flowId: data.flowId,
+          userCode: data.userCode,
+          verificationUri: data.verificationUri,
+          verificationUriComplete: data.verificationUriComplete,
+          interval: Math.max(5, Number(data.interval || 5)),
+          expiresAt: Date.now() + (Math.max(60, Number(data.expiresIn || 600)) * 1000),
+        };
+        kiroBrowserAuthState = null;
+        await loadSettings();
+
+        const verifyUrl = data.verificationUriComplete || data.verificationUri;
+        if (verifyUrl) {
+          window.open(verifyUrl, 'kiro_builder_id_verify');
+        }
+        setKiroUiMessage('Opened the AWS Builder ID verification page. Approve the request there and ModelRelay will finish the connection automatically.', 'info');
+        pollKiroBuilderIdAuth().catch(err => {
+          setKiroUiMessage(err.message || 'Failed while polling AWS Builder ID authorization.', 'error');
+        });
+      } catch (err) {
+        kiroDeviceAuthState = null;
+        setKiroUiMessage(err.message || 'Failed to start AWS Builder ID authorization.', 'error');
+      }
+    }
+
+    async function startKiroBrowserAuth(provider) {
+      const providerLabel = provider === 'github' ? 'GitHub' : 'Google';
+      const popup = window.open('', 'kiro_social_auth');
+      clearKiroDevicePollTimer();
+      kiroDeviceAuthState = null;
+      try {
+        setKiroUiMessage(`Preparing ${providerLabel} browser OAuth. This only works if your machine can open kiro:// links.`, 'info');
+        const res = await fetch(`/api/oauth/kiro/social-authorize?provider=${encodeURIComponent(provider)}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || `Failed to start Kiro ${providerLabel} OAuth.`);
+        }
+
+        kiroBrowserAuthState = {
+          provider,
+          authUrl: data.authUrl,
+          flowId: data.flowId,
+          state: data.state,
+        };
+        await loadSettings();
+        setKiroUiMessage(`Opened the ${providerLabel} login. If the popup reports that kiro:// has no registered handler, this machine cannot complete browser OAuth and you should use AWS cache import or a manual refresh token instead.`, 'info');
+        if (popup) {
+          popup.location = data.authUrl;
+        } else {
+          window.open(data.authUrl, 'kiro_social_auth');
+          setKiroUiMessage(`Popup blocked. Open the copied ${providerLabel} auth link manually, then paste the callback URL below.`, 'info');
+        }
+      } catch (err) {
+        if (popup && !popup.closed) popup.close();
+        setKiroUiMessage(err.message || `Failed to start Kiro ${providerLabel} OAuth.`, 'error');
+      }
+    }
+
+    async function copyKiroAuthUrl() {
+      const input = document.getElementById('kiro-auth-url');
+      const value = input ? input.value.trim() : '';
+      if (!value) return;
+      try {
+        await navigator.clipboard.writeText(value);
+        setKiroUiMessage('Copied the Kiro auth link to your clipboard.', 'success');
+      } catch {
+        setKiroUiMessage('Clipboard copy failed. Copy the Kiro auth link manually.', 'error');
+      }
+    }
+
+    function cancelKiroBrowserAuth() {
+      kiroBrowserAuthState = null;
+      setKiroUiMessage(null);
+      loadSettings();
+    }
+
+    async function completeKiroBrowserAuth() {
+      if (!kiroBrowserAuthState) return;
+      const input = document.getElementById('kiro-callback-url');
+      const callbackUrl = input ? input.value.trim() : '';
+      if (!callbackUrl) {
+        setKiroUiMessage('Paste the full Kiro callback URL first.', 'error');
+        return;
+      }
+
+      try {
+        const url = new URL(callbackUrl);
+        const errorParam = url.searchParams.get('error');
+        if (errorParam) {
+          throw new Error(url.searchParams.get('error_description') || errorParam);
+        }
+
+        const code = url.searchParams.get('code');
+        const state = url.searchParams.get('state');
+        if (!code) {
+          throw new Error('No authorization code found in the callback URL.');
+        }
+        if (kiroBrowserAuthState.state && state && state !== kiroBrowserAuthState.state) {
+          throw new Error('The callback state did not match the login request. Start the flow again.');
+        }
+
+        setKiroUiMessage('Exchanging Kiro authorization code...');
+        const res = await fetch('/api/oauth/kiro/social-exchange', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: kiroBrowserAuthState.provider,
+            code,
+            flowId: kiroBrowserAuthState.flowId,
+            state,
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to complete Kiro browser OAuth.');
+        }
+
+        kiroBrowserAuthState = null;
+        setKiroUiMessage(data.email ? `Connected Kiro as ${data.email}.` : 'Connected Kiro successfully.', 'success');
+        await loadSettings();
+        await fetchData();
+      } catch (err) {
+        setKiroUiMessage(err.message || 'Failed to complete Kiro browser OAuth.', 'error');
+      }
+    }
+
+    async function autoImportKiroToken() {
+      try {
+        setKiroUiMessage('Looking for a Kiro refresh token in ~/.aws/sso/cache...');
+        const res = await fetch('/api/oauth/kiro/auto-import');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.found) {
+          throw new Error(data.error || 'No Kiro refresh token found in ~/.aws/sso/cache.');
+        }
+
+        clearKiroDevicePollTimer();
+        kiroDeviceAuthState = null;
+        kiroBrowserAuthState = null;
+        setKiroUiMessage('Imported your Kiro refresh token from the AWS cache.', 'success');
+        await loadSettings();
+        await fetchData();
+      } catch (err) {
+        setKiroUiMessage(err.message || 'Failed to auto-import a Kiro refresh token.', 'error');
+      }
+    }
+
+    async function saveKiroRefreshToken() {
+      const input = document.getElementById('key-kiro');
+      const value = input ? input.value.trim() : '';
+      if (!value) {
+        setKiroUiMessage('Paste a Kiro refresh token before saving.', 'error');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ providerKey: 'kiro', apiKey: value })
+        });
+        if (!res.ok) {
+          throw new Error('Failed to save the Kiro refresh token.');
+        }
+        if (input) input.value = '';
+        clearKiroDevicePollTimer();
+        kiroDeviceAuthState = null;
+        kiroBrowserAuthState = null;
+        setKiroUiMessage('Saved the Kiro refresh token.', 'success');
+        await loadSettings();
+        await fetchData();
+      } catch (err) {
+        setKiroUiMessage(err.message || 'Failed to save the Kiro refresh token.', 'error');
       }
     }
 
@@ -1946,11 +4883,11 @@ import './styles.css';
             : Math.max(0, attempts.length - 1);
           const hadFailover = retryCount > 0;
           let statusBadge = '';
-          if (l.status === '200') statusBadge = '<span style="background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">200 OK</span>';
-          else if (l.status === 'pending') statusBadge = '<span style="background: #eff6ff; color: #1e40af; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">Pending...</span>';
-          else statusBadge = `<span style="background: #fef2f2; color: #991b1b; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">${l.status}</span>`;
+          if (l.status === '200') statusBadge = '<span style="background: var(--status-success-bg); color: var(--status-success-text); padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">200 OK</span>';
+          else if (l.status === 'pending') statusBadge = '<span style="background: var(--status-info-bg); color: var(--status-info-text); padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">Pending...</span>';
+          else statusBadge = `<span style="background: var(--status-error-bg); color: var(--status-error-text); padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">${l.status}</span>`;
           const resolvedModelChip = l.resolvedModel
-            ? `<span style="background:#eef2ff; color:#3730a3; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">resolved: ${escapeHtml(l.resolvedModel)}</span>`
+            ? `<span style="background:var(--status-info-bg); color:var(--status-info-text); padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">resolved: ${escapeHtml(l.resolvedModel)}</span>`
             : '';
 
           let messagesArray = Array.isArray(l.messages) ? l.messages : (typeof l.messages === 'string' ? [{ role: 'raw', content: l.messages }] : []);
@@ -1965,7 +4902,7 @@ import './styles.css';
             return `
               <div style="margin-top: 12px; border-left: 3px solid ${colorVar}; padding-left: 12px;">
                 <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: ${colorVar}; margin-bottom: 4px;">${m.role}</div>
-                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 200px; overflow-y: auto; background: #faf9f8; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${formattedContent}</div>
+                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 200px; overflow-y: auto; background: var(--chat-bg); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${formattedContent}</div>
               </div>
             `;
           }).join('');
@@ -1976,7 +4913,7 @@ import './styles.css';
             responseHtml = `
               <div style="margin-top: 12px; border-left: 3px solid var(--accent); padding-left: 12px;">
                 <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 4px;">ASSISTANT</div>
-                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 300px; overflow-y: auto; background: #faf9f8; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${formattedResp}</div>
+                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 300px; overflow-y: auto; background: var(--chat-bg); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${formattedResp}</div>
               </div>
             `;
           }
@@ -1988,7 +4925,7 @@ import './styles.css';
             toolCallsHtml = `
               <div style="margin-top: 12px; border-left: 3px solid var(--accent); padding-left: 12px;">
                 <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 4px;">TOOL CALLS (${numTools})</div>
-                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 200px; overflow-y: auto; background: #faf9f8; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${tcStr}</div>
+                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 200px; overflow-y: auto; background: var(--chat-bg); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${tcStr}</div>
               </div>
             `;
           }
@@ -1999,7 +4936,7 @@ import './styles.css';
             functionCallHtml = `
               <div style="margin-top: 12px; border-left: 3px solid var(--accent); padding-left: 12px;">
                 <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 4px;">FUNCTION CALL</div>
-                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 200px; overflow-y: auto; background: #faf9f8; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${fcStr}</div>
+                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 200px; overflow-y: auto; background: var(--chat-bg); padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${fcStr}</div>
               </div>
             `;
           }
@@ -2011,7 +4948,7 @@ import './styles.css';
             errorHtml = `
               <div style="margin-top: 12px; border-left: 3px solid var(--error); padding-left: 12px;">
                 <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--error); margin-bottom: 4px;">PROXY ERROR</div>
-                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: #7f1d1d; max-height: 200px; overflow-y: auto; background: #fef2f2; padding: 8px; border-radius: 6px; border: 1px solid #fecaca;">${formattedErr}</div>
+                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--status-error-text); max-height: 200px; overflow-y: auto; background: var(--status-error-bg); padding: 8px; border-radius: 6px; border: 1px solid var(--status-error-border);">${formattedErr}</div>
               </div>
             `;
           }
@@ -2022,8 +4959,8 @@ import './styles.css';
               const code = a && a.status ? String(a.status) : 'unknown';
               const isOk = code === '200';
               const isRetryable = !!(a && a.retryable);
-              const chipBg = isOk ? '#ecfdf5' : (isRetryable ? '#fffbeb' : '#fef2f2');
-              const chipFg = isOk ? '#065f46' : (isRetryable ? '#92400e' : '#991b1b');
+              const chipBg = isOk ? 'var(--status-success-bg)' : (isRetryable ? 'var(--status-warning-bg)' : 'var(--status-error-bg)');
+              const chipFg = isOk ? 'var(--status-success-text)' : (isRetryable ? 'var(--status-warning-text)' : 'var(--status-error-text)');
               const model = a && a.model ? a.model : '(unknown model)';
               const provider = a && a.provider ? a.provider : '(unknown provider)';
               const duration = a && a.duration != null ? `${a.duration}ms` : 'n/a';
@@ -2031,7 +4968,7 @@ import './styles.css';
                 ? `<div style="margin-top:4px; color: var(--text-muted); font-size:0.72rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${String(a.error).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
                 : '';
               return `
-                <div style="padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #faf9f8;">
+                <div style="padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--chat-bg);">
                   <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
                     <div style="font-size:0.78rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><span style="color:var(--text-muted);">#${idx + 1}</span> ${provider}/${model}</div>
                     <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
@@ -2087,7 +5024,7 @@ import './styles.css';
                 ${failoverHtml}
                 ${errorHtml}
                 <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border); display:flex; justify-content:flex-end;">
-                  <button onclick="event.stopPropagation(); toggleBan('${l.model}', '${logModelStatus}')" style="background: ${isBanned ? '#e5e7eb' : '#fef2f2'}; border: 1px solid ${isBanned ? '#d1d5db' : '#fecaca'}; padding: 6px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; color: ${isBanned ? '#374151' : '#991b1b'}; cursor: pointer;">${isBanned ? '✓ Unban Model' : '🚫 Ban Model'}</button>
+                  <button onclick="event.stopPropagation(); toggleBan('${l.model}', '${logModelStatus}')" style="background: ${isBanned ? 'var(--border-subtle)' : 'var(--status-error-bg)'}; border: 1px solid ${isBanned ? 'var(--border-subtle)' : 'var(--status-error-border)'}; padding: 6px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; color: ${isBanned ? 'var(--status-neutral-text)' : 'var(--status-error-text)'}; cursor: pointer;">${isBanned ? '✓ Unban Model' : '🚫 Ban Model'}</button>
                 </div>
               </div>
             </div>
@@ -2171,7 +5108,7 @@ import './styles.css';
       if (role === 'system') return 'var(--warning)';
       if (role === 'user') return 'var(--success)';
       if (role === 'assistant') return 'var(--accent)';
-      if (role === 'tool') return '#8b5cf6';
+      if (role === 'tool') return 'var(--accent)';
       return 'var(--text-muted)';
     }
 
@@ -2263,14 +5200,14 @@ import './styles.css';
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
               <span style="font-size: 0.68rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:${badgeColor};">${escapeHtml(role)}</span>
             </div>
-            <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); background: #faf9f8; padding: 9px; border-radius: 7px; border: 1px solid var(--border); max-height: 240px; overflow-y:auto;">${content}</div>
+            <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); background: var(--chat-bg); padding: 9px; border-radius: 7px; border: 1px solid var(--border); max-height: 240px; overflow-y:auto;">${content}</div>
             <div style="margin-top:8px; font-size: 0.74rem; color: var(--text-muted); display:flex; gap:8px; flex-wrap:wrap;">
               <span>${timeStr}</span>
               <span>•</span>
               <span>${dateStr}</span>
               <span>•</span>
               <span>${escapeHtml(item.model || '(unknown model)')}</span>
-              ${item.resolvedModel ? `<span>•</span><span style="color:#3730a3;">resolved: ${escapeHtml(item.resolvedModel)}</span>` : ''}
+              ${item.resolvedModel ? `<span>•</span><span style="color:var(--status-info-text);">resolved: ${escapeHtml(item.resolvedModel)}</span>` : ''}
             </div>
           </div>
         `;
@@ -2327,8 +5264,8 @@ import './styles.css';
 
       const isModelPinned = activePinnedRowKeys.includes(getModelRowKey(m));
       const lastErrorHtml = m.lastError && m.lastError.message
-        ? `<div style="margin: -6px 0 14px; padding: 10px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #7f1d1d; font-size: 0.76rem;">
-            <div style="font-weight: 700; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.68rem; color: #991b1b;">Last Ping Error</div>
+        ? `<div style="margin: -6px 0 14px; padding: 10px 12px; background: var(--status-error-bg); border: 1px solid var(--status-error-border); border-radius: 8px; color: var(--status-error-text); font-size: 0.76rem;">
+            <div style="font-weight: 700; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.68rem; color: var(--status-error-text);">Last Ping Error</div>
             <div style="word-break: break-word;">${escapeHtml(m.lastError.message)}</div>
           </div>`
         : '';
@@ -2336,16 +5273,16 @@ import './styles.css';
         <div style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
           <div style="min-width:0; flex:1;">
             <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Model ID</div>
-            <div style="font-family: monospace; background: #f3f2f1; padding: 12px; border-radius: 8px; font-size: 0.875rem; word-break:break-all;">${m.modelId}</div>
+            <div style="font-family: monospace; background: var(--surface-alt); padding: 12px; border-radius: 8px; font-size: 0.875rem; word-break:break-all;">${m.modelId}</div>
           </div>
           <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
-            <button onclick="pinModel('${isModelPinned ? '' : m.modelId}', '${m.providerKey}')" style="background: ${isModelPinned ? '#eff6ff' : '#f3f2f1'}; border: ${isModelPinned ? '1px solid #bfdbfe' : '1px solid transparent'}; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; color: ${isModelPinned ? '#1e40af' : 'var(--text)'}; cursor: pointer;">
+            <button onclick="pinModel('${isModelPinned ? '' : m.modelId}', '${m.providerKey}')" style="background: ${isModelPinned ? 'var(--status-info-bg)' : 'var(--surface-alt)'}; border: ${isModelPinned ? '1px solid var(--status-info-border)' : '1px solid transparent'}; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; color: ${isModelPinned ? 'var(--status-info-text)' : 'var(--text)'}; cursor: pointer;">
               ${isModelPinned ? '📌 Unpin Model' : '📌 Pin Model'}
             </button>
-            <button onclick="pingModelNow('${m.modelId}')" style="background: #ecfeff; border: 1px solid #a5f3fc; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; color: #0e7490; cursor: pointer;">
+            <button onclick="pingModelNow('${m.modelId}')" style="background: var(--status-info-bg); border: 1px solid var(--status-info-border); padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; color: var(--status-info-text); cursor: pointer;">
               📶 Ping Now
             </button>
-            <button onclick="toggleBan('${m.modelId}', '${m.status}')" style="background: ${m.status === 'banned' ? 'var(--text-muted)' : '#fef2f2'}; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; color: ${m.status === 'banned' ? '#fff' : '#991b1b'}; cursor: pointer;">
+            <button onclick="toggleBan('${m.modelId}', '${m.status}')" style="background: ${m.status === 'banned' ? 'var(--text-muted)' : 'var(--status-error-bg)'}; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; color: ${m.status === 'banned' ? 'var(--input-bg)' : 'var(--status-error-text)'}; cursor: pointer;">
               ${m.status === 'banned' ? 'Unban Model' : 'Ban Model'}
             </button>
           </div>
@@ -2353,11 +5290,11 @@ import './styles.css';
         ${lastErrorHtml}
         <div id="drawer-ping-status" style="margin: -8px 0 16px; font-size: 0.75rem; color: var(--text-muted);"></div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px;">
-          <div style="background: #faf9f8; padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
+          <div style="background: var(--chat-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
             <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">SWE-bench</div>
             <div style="font-weight: 700;">${getBenchmarkDisplayValue(m.intell, m.isEstimatedScore)}</div>
           </div>
-          <div style="background: #faf9f8; padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
+          <div style="background: var(--chat-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
             <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Context</div>
             <div style="font-weight: 700;">${m.ctx || 'N/A'}</div>
           </div>
@@ -2440,40 +5377,7 @@ import './styles.css';
     updateLogsPauseButton();
     setInterval(fetchData, 4000);
     fetchData();
-  
+  </script>
+</body>
 
-Object.assign(window, {
-  switchTab,
-  closeDrawer,
-  clearChat,
-  copyConfigTokenFromBox,
-  exportConfigTokenToBox,
-  handleChatInputKeydown,
-  handleSearch,
-  importConfigTokenFromBox,
-  loadLogs,
-  onChatModelChange,
-  pinModel,
-  render,
-  resetSort,
-  sendChatMessage,
-  setLogsViewMode,
-  setSort,
-  toggleAll,
-  toggleFilterBar,
-  toggleLogsAutoRefresh,
-  openDrawer,
-  toggleBan,
-  pingModelNow,
-  saveAutoUpdateSettings,
-  saveFilterRules,
-  updatePinningMode,
-  updateProvider,
-  updateProviderKey,
-  deleteProviderKey,
-  updateProviderBaseUrl,
-  updateProviderModelId,
-  updateProviderPingInterval,
-  updateProviderBearerAuth,
-  startQwenOAuthLogin,
-});
+</html>
