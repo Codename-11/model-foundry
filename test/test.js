@@ -6,10 +6,12 @@ import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 
 import { sources, MODELS, canonicalizeModelId, getPreferredModelLabel } from '../sources.js'
+import { getBenchmarkBreakdown } from '../benchmark-data.js'
 import {
   getAvg,
   getVerdict,
   getUptime,
+  isModelEligibleForRouting,
   sortResults,
   findBestModel,
   rankModelsForRouting,
@@ -22,7 +24,9 @@ import {
 } from '../lib/utils.js'
 import { buildOpenClawProviderConfig } from '../lib/onboard.js'
 import { resolveAutostartExecPath, resolveAutostartNodePath } from '../lib/autostart.js'
-import { exportConfigToken, getApiKey, getPinningMode, getProviderBaseUrl, getProviderModelId, getProviderPingIntervalMs, importConfigToken } from '../lib/config.js'
+import { exportConfigToken, getApiKey, getPinningMode, getProviderBaseUrl, getProviderCatalogVisible, getProviderModelId, getProviderPingIntervalMs, importConfigToken, isProviderEnabled } from '../lib/config.js'
+import { buildProviderCatalog, getFrontierFamilies, getFrontierFamilyMeta, getProviderMeta, getProviderSetupMeta, getQuickstartProviderChoices, getRecommendedProviderKey, parseQuickstartProviderChoice } from '../lib/providerMeta.js'
+import { applyPersistedTelemetry, getTelemetryRowKey, normalizeTelemetryPayload, serializeTelemetryMap, snapshotTelemetryRow } from '../lib/telemetry.js'
 import { buildNpmInstallInvocation, buildWindowsPostUpdateRestartCommand, getForcedUpdateVersion, getLocalUpdateTarballPath, getLocalUpdateVersion, isRunningFromSource, shouldStopAutostartBeforeUpdate } from '../lib/update.js'
 import { isQwenOauthAccessTokenValid, pollQwenOauthDeviceToken, resolveQwenCodeOauthAccessToken, startQwenOauthDeviceLogin } from '../lib/qwencodeAuth.js'
 import { buildOpencodeHeaders, buildOpencodeProjectId, buildProviderRequestHeaders, getPinnedModelCandidate, getPinnedModelMatches, isProviderAuthOptional, isProviderBearerAuthEnabled, providerWantsBearerAuth, shouldRetryOptionalProviderWithBearer, toOpenCodeModelMeta, toOpenRouterModelMeta, toKiloCodeModelMeta } from '../lib/server.js'
@@ -62,6 +66,14 @@ function withEnv(overrides, fn) {
   }
 }
 
+function removePathBestEffort(targetPath, options = {}) {
+  try {
+    rmSync(targetPath, { force: true, ...options })
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
 describe('config helpers', () => {
   it('resolves provider-specific ping intervals', () => {
     const config = {
@@ -77,6 +89,19 @@ describe('config helpers', () => {
     assert.equal(getProviderPingIntervalMs(config, 'openrouter'), 30 * 60_000) // default
     assert.equal(getProviderPingIntervalMs(config, 'missing'), 30 * 60_000) // default
     assert.equal(getPinningMode(config), 'canonical')
+  })
+
+  it('does not enable blank providers by default but preserves configured lanes', () => {
+    assert.equal(isProviderEnabled({ providers: {} }, 'openrouter'), false)
+    assert.equal(isProviderEnabled({ apiKeys: { openrouter: 'sk-or-key' }, providers: {} }, 'openrouter'), true)
+    assert.equal(isProviderEnabled({ providers: { groq: { enabled: true } } }, 'groq'), true)
+    assert.equal(isProviderEnabled({ providers: { groq: { enabled: false } } }, 'groq'), false)
+  })
+
+  it('shows providers in the catalog by default but lets visibility be disabled explicitly', () => {
+    assert.equal(getProviderCatalogVisible({ providers: {} }, 'anthropic'), true)
+    assert.equal(getProviderCatalogVisible({ providers: { anthropic: { catalogVisible: true } } }, 'anthropic'), true)
+    assert.equal(getProviderCatalogVisible({ providers: { anthropic: { catalogVisible: false } } }, 'anthropic'), false)
   })
 
   it('exports/imports full config through transfer token', () => {
@@ -112,6 +137,86 @@ describe('config helpers', () => {
   })
 })
 
+describe('routing eligibility', () => {
+  it('treats missing-auth rows as ineligible for routing', () => {
+    assert.equal(isModelEligibleForRouting(mockResult({ status: 'up' })), true)
+    assert.equal(isModelEligibleForRouting(mockResult({ status: 'noauth' })), false)
+    assert.equal(isModelEligibleForRouting(mockResult({ status: 'disabled' })), false)
+  })
+})
+
+describe('benchmark breakdowns', () => {
+  it('returns source-specific benchmark rows for canonical models', () => {
+    const rows = getBenchmarkBreakdown('qwen/qwen3-235b-a22b')
+    assert.equal(rows.some(row => row.sourceKey === 'humaneval'), true)
+    assert.equal(rows.some(row => row.sourceKey === 'livecodebench'), true)
+  })
+
+  it('resolves aliases and suffixes to the same benchmark breakdown', () => {
+    const rows = getBenchmarkBreakdown('openai/gpt-oss-120b:free')
+    assert.equal(rows.some(row => row.sourceKey === 'code-arena'), true)
+  })
+})
+
+describe('telemetry persistence helpers', () => {
+  it('normalizes persisted payloads into a row-keyed map', () => {
+    const map = normalizeTelemetryPayload({
+      rows: [
+        {
+          providerKey: 'openai',
+          modelId: 'gpt-5.1',
+          status: 'up',
+          pings: [{ code: '200', ms: 210, ts: 123 }],
+        },
+      ],
+    })
+
+    assert.equal(map.has(getTelemetryRowKey('openai', 'gpt-5.1')), true)
+    assert.equal(map.get(getTelemetryRowKey('openai', 'gpt-5.1')).pings.length, 1)
+  })
+
+  it('snapshots and reapplies useful telemetry onto a row', () => {
+    const row = mockResult({
+      providerKey: 'anthropic',
+      modelId: 'claude-sonnet-4-20250514',
+      status: 'up',
+      httpCode: null,
+      pings: [{ code: '200', ms: 180, ts: 456 }],
+      lastPingAt: 456,
+      lastModelResponseAt: 500,
+      lastError: null,
+      rateLimit: { remainingRequests: 10 },
+    })
+
+    const snapshot = snapshotTelemetryRow(row)
+    assert.equal(snapshot.providerKey, 'anthropic')
+    assert.equal(snapshot.pings.length, 1)
+
+    const target = mockResult({
+      providerKey: 'anthropic',
+      modelId: 'claude-sonnet-4-20250514',
+      status: 'pending',
+      pings: [],
+    })
+
+    applyPersistedTelemetry(target, snapshot)
+    assert.equal(target.status, 'up')
+    assert.equal(target.pings.length, 1)
+    assert.equal(target.lastModelResponseAt, 500)
+    assert.equal(target.rateLimit.remainingRequests, 10)
+  })
+
+  it('serializes telemetry maps with bounded rows', () => {
+    const map = new Map([
+      ['a::1', { providerKey: 'a', modelId: '1', status: 'up', pings: [{ code: '200', ms: 10, ts: 1 }], lastPingAt: 1, lastModelResponseAt: 2, lastError: null, rateLimit: null }],
+    ])
+    const payload = serializeTelemetryMap(map)
+    assert.equal(payload.version, 1)
+    assert.equal(Array.isArray(payload.rows), true)
+    assert.equal(payload.rows.length, 1)
+  })
+})
+
 describe('sources data integrity', () => {
   it('includes Qwen Code provider', () => {
     assert.ok(sources.qwencode)
@@ -124,6 +229,15 @@ describe('sources data integrity', () => {
     assert.ok(sources['openai-compatible'])
     assert.equal(sources['openai-compatible'].name, 'OpenAI-Compatible')
     assert.ok(Array.isArray(sources['openai-compatible'].models))
+  })
+
+  it('includes direct frontier providers', () => {
+    assert.equal(sources.anthropic.name, 'Anthropic Claude')
+    assert.equal(sources.openai.name, 'OpenAI')
+    assert.equal(sources.gemini.name, 'Google Gemini')
+    assert.ok(Array.isArray(sources.anthropic.models))
+    assert.ok(Array.isArray(sources.openai.models))
+    assert.ok(Array.isArray(sources.gemini.models))
   })
 
   it('includes OpenCode Zen provider', () => {
@@ -292,6 +406,7 @@ describe('provider api key resolution', () => {
   it('builds stable OpenCode CLI headers for unauthenticated requests', () => {
     assert.equal(buildOpencodeProjectId('C:/example/project'), buildOpencodeProjectId('C:/example/project'))
     assert.match(buildOpencodeProjectId('C:/example/project'), /^[a-f0-9]{40}$/)
+    assert.equal(buildOpencodeProjectId(), buildOpencodeProjectId('model-foundry'))
 
     const headers = buildOpencodeHeaders({
       projectSeed: 'C:/example/project',
@@ -515,7 +630,7 @@ describe('Qwen OAuth auth cycle', () => {
       assert.ok(updated.expiry_date > Date.now())
     } finally {
       globalThis.fetch = originalFetch
-      rmSync(tempDir, { recursive: true, force: true })
+      removePathBestEffort(tempDir, { recursive: true })
     }
   })
 })
@@ -852,13 +967,13 @@ describe('local update overrides', () => {
     writeFileSync(tarballPath, 'placeholder', 'utf8')
 
     try {
-      withEnv({ MODELRELAY_UPDATE_TARBALL: tarballPath, MODELRELAY_UPDATE_VERSION: null }, () => {
+      withEnv({ MODEL_FOUNDRY_UPDATE_TARBALL: tarballPath, MODEL_FOUNDRY_UPDATE_VERSION: null }, () => {
         assert.equal(getLocalUpdateTarballPath(), tarballPath)
         assert.equal(getLocalUpdateVersion(), '9.8.7')
         assert.equal(isRunningFromSource(), false)
       })
     } finally {
-      rmSync(tarballPath, { force: true })
+      removePathBestEffort(tarballPath)
     }
   })
 
@@ -867,24 +982,127 @@ describe('local update overrides', () => {
     writeFileSync(tarballPath, 'placeholder', 'utf8')
 
     try {
-      withEnv({ MODELRELAY_UPDATE_TARBALL: tarballPath, MODELRELAY_UPDATE_VERSION: '3.2.1' }, () => {
+      withEnv({ MODEL_FOUNDRY_UPDATE_TARBALL: tarballPath, MODEL_FOUNDRY_UPDATE_VERSION: '3.2.1' }, () => {
         assert.equal(getLocalUpdateVersion(), '3.2.1')
       })
     } finally {
-      rmSync(tarballPath, { force: true })
+      removePathBestEffort(tarballPath)
+    }
+  })
+
+  it('supports direct frontier provider env vars and Gemini Google-key fallback', () => {
+    const originalAnthropicKey = process.env.ANTHROPIC_API_KEY
+    const originalAnthropicBase = process.env.ANTHROPIC_BASE_URL
+    const originalAnthropicModel = process.env.ANTHROPIC_MODEL
+    const originalOpenAIKey = process.env.OPENAI_API_KEY
+    const originalOpenAIBase = process.env.OPENAI_BASE_URL
+    const originalOpenAIModel = process.env.OPENAI_MODEL
+    const originalGeminiKey = process.env.GEMINI_API_KEY
+    const originalGeminiBase = process.env.GEMINI_BASE_URL
+    const originalGeminiModel = process.env.GEMINI_MODEL
+    const originalGoogleKey = process.env.GOOGLE_API_KEY
+
+    try {
+      delete process.env.ANTHROPIC_API_KEY
+      delete process.env.ANTHROPIC_BASE_URL
+      delete process.env.ANTHROPIC_MODEL
+      delete process.env.OPENAI_API_KEY
+      delete process.env.OPENAI_BASE_URL
+      delete process.env.OPENAI_MODEL
+      delete process.env.GEMINI_API_KEY
+      delete process.env.GEMINI_BASE_URL
+      delete process.env.GEMINI_MODEL
+      delete process.env.GOOGLE_API_KEY
+
+      const config = {
+        apiKeys: {
+          anthropic: 'anthropic-config-key',
+          openai: 'openai-config-key',
+          gemini: 'gemini-config-key',
+        },
+        providers: {
+          anthropic: { baseUrl: 'https://api.anthropic.com/v1/', modelId: 'claude-sonnet-4-20250514' },
+          openai: { baseUrl: 'https://api.openai.com/v1/', modelId: 'gpt-5.1' },
+          gemini: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/', modelId: 'gemini-2.5-pro' },
+        },
+      }
+
+      assert.equal(getApiKey(config, 'anthropic'), 'anthropic-config-key')
+      assert.equal(getProviderBaseUrl(config, 'openai'), 'https://api.openai.com/v1/')
+      assert.equal(getProviderModelId(config, 'gemini'), 'gemini-2.5-pro')
+
+      process.env.ANTHROPIC_API_KEY = 'anthropic-env-key'
+      process.env.ANTHROPIC_BASE_URL = 'https://anthropic.env/v1/'
+      process.env.ANTHROPIC_MODEL = 'claude-opus-4-20250514'
+      process.env.OPENAI_API_KEY = 'openai-env-key'
+      process.env.OPENAI_BASE_URL = 'https://openai.env/v1/'
+      process.env.OPENAI_MODEL = 'gpt-5.4'
+      process.env.GOOGLE_API_KEY = 'google-env-key'
+      process.env.GEMINI_BASE_URL = 'https://gemini.env/openai/'
+      process.env.GEMINI_MODEL = 'gemini-2.5-flash'
+
+      assert.equal(getApiKey(config, 'anthropic'), 'anthropic-env-key')
+      assert.equal(getProviderBaseUrl(config, 'anthropic'), 'https://anthropic.env/v1/')
+      assert.equal(getProviderModelId(config, 'anthropic'), 'claude-opus-4-20250514')
+      assert.equal(getApiKey(config, 'openai'), 'openai-env-key')
+      assert.equal(getProviderBaseUrl(config, 'openai'), 'https://openai.env/v1/')
+      assert.equal(getProviderModelId(config, 'openai'), 'gpt-5.4')
+      assert.equal(getApiKey(config, 'gemini'), 'google-env-key')
+      assert.equal(getProviderBaseUrl(config, 'gemini'), 'https://gemini.env/openai/')
+      assert.equal(getProviderModelId(config, 'gemini'), 'gemini-2.5-flash')
+    } finally {
+      if (originalAnthropicKey == null) delete process.env.ANTHROPIC_API_KEY
+      else process.env.ANTHROPIC_API_KEY = originalAnthropicKey
+      if (originalAnthropicBase == null) delete process.env.ANTHROPIC_BASE_URL
+      else process.env.ANTHROPIC_BASE_URL = originalAnthropicBase
+      if (originalAnthropicModel == null) delete process.env.ANTHROPIC_MODEL
+      else process.env.ANTHROPIC_MODEL = originalAnthropicModel
+      if (originalOpenAIKey == null) delete process.env.OPENAI_API_KEY
+      else process.env.OPENAI_API_KEY = originalOpenAIKey
+      if (originalOpenAIBase == null) delete process.env.OPENAI_BASE_URL
+      else process.env.OPENAI_BASE_URL = originalOpenAIBase
+      if (originalOpenAIModel == null) delete process.env.OPENAI_MODEL
+      else process.env.OPENAI_MODEL = originalOpenAIModel
+      if (originalGeminiKey == null) delete process.env.GEMINI_API_KEY
+      else process.env.GEMINI_API_KEY = originalGeminiKey
+      if (originalGeminiBase == null) delete process.env.GEMINI_BASE_URL
+      else process.env.GEMINI_BASE_URL = originalGeminiBase
+      if (originalGeminiModel == null) delete process.env.GEMINI_MODEL
+      else process.env.GEMINI_MODEL = originalGeminiModel
+      if (originalGoogleKey == null) delete process.env.GOOGLE_API_KEY
+      else process.env.GOOGLE_API_KEY = originalGoogleKey
     }
   })
 
   it('accepts a forced update version for simpler local upgrade testing', () => {
-    withEnv({ MODELRELAY_FORCE_UPDATE_VERSION: '9.9.9' }, () => {
+    withEnv({ MODEL_FOUNDRY_FORCE_UPDATE_VERSION: '9.9.9' }, () => {
       assert.equal(getForcedUpdateVersion(), '9.9.9')
     })
   })
 
   it('ignores invalid forced update versions', () => {
-    withEnv({ MODELRELAY_FORCE_UPDATE_VERSION: 'next-build' }, () => {
+    withEnv({ MODEL_FOUNDRY_FORCE_UPDATE_VERSION: 'next-build' }, () => {
       assert.equal(getForcedUpdateVersion(), null)
     })
+  })
+
+  it('falls back to legacy update env vars for older installs', () => {
+    const tarballPath = join(ROOT, 'model-foundry-2.3.4.tgz')
+    writeFileSync(tarballPath, 'placeholder', 'utf8')
+
+    try {
+      withEnv({
+        MODELRELAY_UPDATE_TARBALL: tarballPath,
+        MODELRELAY_UPDATE_VERSION: '2.3.4',
+        MODEL_FOUNDRY_UPDATE_TARBALL: null,
+        MODEL_FOUNDRY_UPDATE_VERSION: null,
+      }, () => {
+        assert.equal(getLocalUpdateTarballPath(), tarballPath)
+        assert.equal(getLocalUpdateVersion(), '2.3.4')
+      })
+    } finally {
+      removePathBestEffort(tarballPath)
+    }
   })
 })
 
@@ -894,14 +1112,14 @@ describe('npm install invocation', () => {
     writeFileSync(tarballPath, 'placeholder', 'utf8')
 
     try {
-      withEnv({ MODELRELAY_UPDATE_TARBALL: tarballPath }, () => {
+      withEnv({ MODEL_FOUNDRY_UPDATE_TARBALL: tarballPath }, () => {
         const invocation = buildNpmInstallInvocation('latest', 'win32')
         assert.equal(invocation.command, 'npm')
         assert.deepEqual(invocation.args, ['install', '-g', tarballPath])
         assert.equal(invocation.shell, true)
       })
     } finally {
-      rmSync(tarballPath, { force: true })
+      removePathBestEffort(tarballPath)
     }
   })
 })
@@ -940,6 +1158,71 @@ describe('onboard integrations', () => {
     assert.equal(provider.api, 'openai-completions')
     assert.equal(provider.apiKey, 'no-key')
     assert.deepEqual(provider.models, [{ id: 'auto-fastest', name: 'Auto Fastest' }])
+  })
+})
+
+describe('provider metadata', () => {
+  it('recommends OpenRouter as the default first-run provider', () => {
+    assert.equal(getRecommendedProviderKey(), 'openrouter')
+    assert.equal(getProviderMeta('openrouter').category, 'recommended')
+    assert.equal(getProviderMeta('openrouter').recommendation, 'Best default')
+  })
+
+  it('exposes a separate frontier family catalog', () => {
+    const families = getFrontierFamilies()
+    assert.deepEqual(families.map(family => family.key), ['anthropic', 'openai', 'gemini'])
+    assert.equal(getFrontierFamilyMeta('openai').label, 'OpenAI')
+  })
+
+  it('parses quick-start onboarding choices with sensible defaults', () => {
+    assert.equal(parseQuickstartProviderChoice(''), 'openrouter')
+    assert.equal(parseQuickstartProviderChoice('1'), 'openrouter')
+    assert.equal(parseQuickstartProviderChoice('2'), 'groq')
+    assert.equal(parseQuickstartProviderChoice('3'), 'openai-compatible')
+    assert.equal(parseQuickstartProviderChoice('4'), 'advanced')
+    assert.equal(parseQuickstartProviderChoice('custom'), 'openai-compatible')
+  })
+
+  it('exposes the quick-start choice set for onboarding', () => {
+    const choices = getQuickstartProviderChoices()
+    assert.deepEqual(choices.map(choice => choice.value), ['openrouter', 'groq', 'openai-compatible', 'advanced'])
+  })
+
+  it('exposes setup defaults for direct frontier providers', () => {
+    const openai = getProviderSetupMeta('openai')
+    const anthropic = getProviderSetupMeta('anthropic')
+    const gemini = getProviderSetupMeta('gemini')
+    assert.equal(openai.defaultModelId, 'gpt-5.1')
+    assert.equal(anthropic.defaultModelId, 'claude-sonnet-4-20250514')
+    assert.equal(gemini.defaultModelId, 'gemini-2.5-pro')
+    assert.equal(openai.authLabel, 'API key required')
+    assert.equal(gemini.costLabel, 'Frontier paid')
+  })
+
+  it('builds a provider catalog with a frontier section', () => {
+    const catalog = buildProviderCatalog({
+      apiKeys: {
+        anthropic: 'anthropic-key',
+        gemini: 'gemini-key',
+      },
+      providers: {
+        anthropic: { baseUrl: 'https://api.anthropic.com/v1/', modelId: 'claude-sonnet-4-20250514' },
+        openai: { baseUrl: 'https://api.openai.com/v1/', modelId: 'gpt-5.1' },
+        gemini: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/', modelId: 'gemini-2.5-pro' },
+      },
+    })
+
+    assert.equal(catalog.version, 1)
+    assert.equal(catalog.recommendedDefault, 'openrouter')
+    assert.ok(Array.isArray(catalog.sections))
+    assert.ok(catalog.sections.some(section => section.id === 'frontier'))
+
+    const frontier = catalog.sections.find(section => section.id === 'frontier')
+    assert.ok(frontier)
+    assert.equal(frontier.families.length, 3)
+    assert.equal(frontier.families[0].apiKeyEnv, 'ANTHROPIC_API_KEY')
+    assert.equal(frontier.families[0].currentProviderKey, 'anthropic')
+    assert.equal(frontier.families[2].currentProviderKey, 'gemini')
   })
 })
 

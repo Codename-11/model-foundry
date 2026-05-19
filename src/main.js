@@ -1,31 +1,122 @@
 import './styles.css';
+import { registerChat } from './app/chat.js';
+import { registerLogs } from './app/logs.js';
+import { registerSettings } from './app/settings.js';
+import { getBenchmarkBreakdown } from '../benchmark-data.js';
+import { USE_CASE_PROFILES, getProfileLabel, getUseCaseFit, inferModelCapabilities } from './app/modelProfiles.js';
+import { constants, state as appState } from './app/state.js';
+import { MODELS, sources } from '../sources.js';
+import {
+  BENCHMARK_SCORE_DESCRIPTION,
+  BENCHMARK_SCORE_LABEL,
+  BENCHMARK_SCORE_PROVENANCE,
+  BENCHMARK_SOURCE_GROUPS,
+} from './app/benchmarkMeta.js';
+import {
+  escapeHtml,
+  formatIsoDateTime,
+  formatPingHover,
+  getBenchmarkDisplayValue,
+  getBenchmarkSortValue,
+  getBenchmarkTableDisplayValue,
+  getPingAnimClass,
+  getPingSpeed,
+  getQosColor,
+  getQosDisplayValue,
+} from './app/utils.js';
 
     let allModels = [];
     let searchTerm = '';
     // null = default multi-sort; otherwise { col: string, dir: 'asc'|'desc' }
     let sortState = null;
     let openDrawerModelId = null;
+    let openDrawerRowKey = null;
     let currentRenderedOrder = [];
     let activePinnedModelId = null; // tracks the current pinned selection key
     let activePinnedProviderKey = null;
     let activePinnedRowKeys = []; // resolved pinned rows from server/client
-    let pinningMode = 'canonical';
+    let compareRowKeys = [];
+    let catalogModels = [];
+    let latestProviders = [];
+    let catalogSearchTerm = '';
+    let catalogLane = 'all';
+    let catalogView = 'table';
+    let catalogSort = 'best';
+    let catalogProfile = 'all';
+    let catalogFilterChips = new Set();
     window.isTableHovered = false;
     let metaLoaded = false;
-    let logsViewMode = 'history';
-    let logsAutoRefreshPaused = false;
-    const PROVIDER_ERROR_MAX_AGE_MS = 120 * 60_000;
-    let qwenOauthSessionId = null;
-    let qwenOauthPollTimer = null;
-    let filterRules = { minSweScore: null, excludedProviders: [] };
-    let chatMessages = [];
-    let chatInFlight = false;
-    let chatSelectedModel = 'auto-fastest';
-    const CHAT_STORAGE_KEY = 'modelfoundry-chat-v1';
-    const CHAT_MODEL_STORAGE_KEY = 'modelfoundry-chat-model-v1';
-    const MODEL_ID_ALIASES = {
-      'mimo-v2-omni-free': 'xiaomi/mimo-v2-omni:free',
+    const PROVIDER_ERROR_MAX_AGE_MS = constants.PROVIDER_ERROR_MAX_AGE_MS;
+    const MODEL_ID_ALIASES = constants.MODEL_ID_ALIASES;
+    const FRONTIER_PROVIDER_KEYS = new Set(['anthropic', 'openai', 'gemini']);
+    const FRONTIER_FAMILY_NAMES = ['Anthropic Claude', 'OpenAI GPT / Codex', 'Google Gemini'];
+
+    const app = {
+      state: appState,
+      fetchData,
+      getProviderErrorMaxAgeMs: () => PROVIDER_ERROR_MAX_AGE_MS,
+      setPinningMode: mode => {
+        appState.pinningMode = mode === 'exact' ? 'exact' : 'canonical';
+      },
+      setFilterRules: nextRules => {
+        appState.filterRules = {
+          minSweScore: nextRules?.minSweScore ?? null,
+          excludedProviders: Array.isArray(nextRules?.excludedProviders) ? nextRules.excludedProviders : [],
+        };
+      },
     };
+    Object.defineProperty(appState, 'allModels', {
+      configurable: true,
+      enumerable: true,
+      get: () => allModels,
+      set: value => {
+        allModels = value;
+      }
+    });
+
+    registerChat(app);
+    registerLogs(app);
+    registerSettings(app);
+
+    const {
+      clearChat,
+      handleChatInputKeydown,
+      initializeChat,
+      onChatModelChange,
+      renderChatTranscript,
+      scrollChatToBottom,
+      sendChatMessage,
+      updateChatModelOptions,
+    } = app;
+    const {
+      applyProviderDefaults,
+      copyConfigTokenFromBox,
+      deleteProviderKey,
+      exportConfigTokenToBox,
+      hideProviderCard,
+      importConfigTokenFromBox,
+      loadSettings,
+      revealProviderCard,
+      saveAutoUpdateSettings,
+      saveFilterRules,
+      setQwenLoginStatus,
+      loadLogs,
+      setLogsViewMode,
+      startQwenOAuthLogin,
+      switchSettingsPanel,
+      toggleLogCard,
+      toggleLogsAutoRefresh,
+      toggleProviderCard,
+      updateLogsPauseButton,
+      updatePinningMode,
+      updateProvider,
+      updateProviderBaseUrl,
+      updateProviderBearerAuth,
+      updateProviderCatalogVisibility,
+      updateProviderKey,
+      updateProviderModelId,
+      updateProviderPingInterval,
+    } = app;
 
 
 
@@ -34,19 +125,383 @@ import './styles.css';
       document.getElementById(`tab-${tab}`).classList.add('active');
 
       document.getElementById('models-view').style.display = tab === 'models' ? 'block' : 'none';
+      document.getElementById('catalog-view').style.display = tab === 'catalog' ? 'block' : 'none';
       document.getElementById('chat-view').style.display = tab === 'chat' ? 'block' : 'none';
       document.getElementById('logs-view').style.display = tab === 'logs' ? 'block' : 'none';
       document.getElementById('settings-view').style.display = tab === 'settings' ? 'block' : 'none';
       document.getElementById('setup-view').style.display = tab === 'setup' ? 'block' : 'none';
 
       if (tab === 'settings') {
+        switchSettingsPanel('overview');
         loadSettings();
       } else if (tab === 'logs') {
         loadLogs(true);
       } else if (tab === 'chat') {
         renderChatTranscript();
         scrollChatToBottom();
+      } else if (tab === 'catalog') {
+        renderCatalog();
       }
+    }
+
+    function bindTabNavigation() {
+      document.querySelectorAll('.tab[data-tab]').forEach(tab => {
+        tab.addEventListener('click', () => {
+          const targetTab = tab.dataset.tab;
+          if (targetTab) switchTab(targetTab);
+        });
+      });
+    }
+
+    function getModelLane(model) {
+      return FRONTIER_PROVIDER_KEYS.has(model.providerKey) ? 'frontier' : 'general';
+    }
+
+    function getLaneLabel(lane) {
+      return lane === 'frontier' ? 'Frontier' : 'Open / General';
+    }
+
+    function setTelemetryLane(lane) {
+      appState.telemetryLaneFilter = lane === 'frontier' ? 'frontier' : lane === 'all' ? 'all' : 'general';
+      document.querySelectorAll('.telemetry-lane-btn').forEach(button => {
+        const isActive = button.id === `lane-filter-${appState.telemetryLaneFilter}`;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      render(true);
+    }
+
+    function syncTelemetryTrackedToggle() {
+      const toggle = document.getElementById('tracked-rows-toggle');
+      if (toggle) toggle.checked = appState.telemetryShowTracked === true;
+    }
+
+    function setTelemetryTrackedVisibility(showTracked) {
+      appState.telemetryShowTracked = showTracked === true;
+      syncTelemetryTrackedToggle();
+      render(true);
+    }
+
+    function parseContextWindow(ctx) {
+      const raw = String(ctx || '').trim().toLowerCase();
+      if (!raw) return 0;
+      const numeric = Number.parseFloat(raw);
+      if (!Number.isFinite(numeric)) return 0;
+      if (raw.endsWith('m')) return numeric * 1_000_000;
+      if (raw.endsWith('k')) return numeric * 1_000;
+      return numeric;
+    }
+
+    function isTrackedOnlyModel(model) {
+      return !model?.active && (!Array.isArray(model?.pings) || model.pings.length === 0);
+    }
+
+    function isOperationalTelemetryModel(model) {
+      if (!model) return false;
+      if (isTrackedOnlyModel(model)) return false;
+      if (model.status === 'disabled' || model.status === 'banned' || model.status === 'excluded') return false;
+      return true;
+    }
+
+    function getTelemetryDataset(models, includeTracked = appState.telemetryShowTracked === true) {
+      return includeTracked ? [...models] : models.filter(isOperationalTelemetryModel);
+    }
+
+    function getAvailabilityDisplay(model) {
+      if (isTrackedOnlyModel(model)) return 'Not live yet';
+      if (!Number.isFinite(Number(model?.uptime))) return '—';
+      return `${Number(model.uptime) || 0}%`;
+    }
+
+    function formatRouteLatency(model) {
+      if (isTrackedOnlyModel(model)) return 'Not live yet';
+      if (model?.status === 'noauth') return 'Needs auth';
+      if (model?.status === 'disabled') return 'Disabled';
+      return formatLatencyValue(model?.avg);
+    }
+
+    function getQosDisplayForModel(model) {
+      if (isTrackedOnlyModel(model)) return '—';
+      return String(getQosDisplayValue(model?.qos));
+    }
+
+    function getCatalogAuthKind(model) {
+      const label = String(model?.providerAuthLabel || '').toLowerCase();
+      if (!label) return 'required';
+      if (label.includes('optional')) return 'optional';
+      return 'required';
+    }
+
+    function getBenchmarkDomains(model) {
+      return new Set(inferModelCapabilities(model).domains);
+    }
+
+    function getCatalogBestForTags(model) {
+      const tags = [];
+      const capabilities = inferModelCapabilities(model);
+      const domains = new Set(capabilities.domains);
+      if (domains.has('coding')) tags.push('Coding');
+      if (domains.has('general')) tags.push('General use');
+      if (domains.has('reasoning')) tags.push('Reasoning');
+      if (capabilities.longContext) tags.push('Long context');
+      if (capabilities.fast) tags.push('Fast inference');
+      if ((model?.benchmarkBreakdown?.length || 0) > 0) tags.push('Benchmarked');
+      if (model?.catalogSeeded) tags.push('Tracked default');
+      if (capabilities.freeSignal) {
+        tags.push('Free variants');
+      }
+      if (model?.lane === 'frontier') tags.push('Frontier paid');
+      else tags.push('Open lane');
+      return [...new Set(tags)].slice(0, 3);
+    }
+
+    function matchesCatalogChip(model, chip) {
+      const sourceCount = model?.benchmarkBreakdown?.length || 0;
+      const authKind = getCatalogAuthKind(model);
+      const domains = getBenchmarkDomains(model);
+      const contextWindow = parseContextWindow(model?.ctx);
+      if (chip === 'active') return Boolean(model?.active);
+      if (chip === 'configured') return Boolean(model?.enabled);
+      if (chip === 'benchmarked') return sourceCount > 0;
+      if (chip === 'missing') return sourceCount === 0;
+      if (chip === 'needs-key') return authKind === 'required';
+      if (chip === 'no-key') return authKind === 'optional';
+      if (chip === 'coding') return domains.has('coding');
+      if (chip === 'general') return domains.has('general');
+      if (chip === 'reasoning') return domains.has('reasoning');
+      if (chip === 'long-context') return contextWindow >= 200_000;
+      return true;
+    }
+
+    function getCatalogStateLabel(model) {
+      if (model?.active) return `Live now${model?.status ? ` (${model.status})` : ''}`;
+      if (model?.enabled) return 'Configured, not live';
+      if (model?.discovered) return 'Discovered route';
+      if (model?.catalogSeeded) return 'Tracked default';
+      return 'Tracked only';
+    }
+
+    function getCatalogStateClass(model) {
+      if (model?.active) return 'live';
+      if ((model?.benchmarkBreakdown?.length || 0) === 0) return 'missing';
+      return '';
+    }
+
+    function getCatalogSortComparator(sortKey = catalogSort) {
+      if (sortKey === 'benchmark') {
+        return (a, b) => {
+          const scoreDiff = getBenchmarkSortValue(b.intell) - getBenchmarkSortValue(a.intell);
+          if (scoreDiff !== 0) return scoreDiff;
+          return (b.benchmarkBreakdown?.length || 0) - (a.benchmarkBreakdown?.length || 0);
+        };
+      }
+      if (sortKey === 'ping') {
+        return (a, b) => {
+          const aPing = Number.isFinite(a.avg) ? Number(a.avg) : Number.POSITIVE_INFINITY;
+          const bPing = Number.isFinite(b.avg) ? Number(b.avg) : Number.POSITIVE_INFINITY;
+          if (aPing !== bPing) return aPing - bPing;
+          return Number(b.active) - Number(a.active);
+        };
+      }
+      if (sortKey === 'availability') {
+        return (a, b) => (Number(b.uptime) || 0) - (Number(a.uptime) || 0);
+      }
+      if (sortKey === 'benchmarked') {
+        return (a, b) => {
+          const sourceDiff = (b.benchmarkBreakdown?.length || 0) - (a.benchmarkBreakdown?.length || 0);
+          if (sourceDiff !== 0) return sourceDiff;
+          return getBenchmarkSortValue(b.intell) - getBenchmarkSortValue(a.intell);
+        };
+      }
+      if (sortKey === 'az') {
+        return (a, b) => String(a.label || '').localeCompare(String(b.label || ''));
+      }
+      return (a, b) => {
+        if (catalogProfile !== 'all') {
+          const profileDiff = getUseCaseFit(b, catalogProfile).score - getUseCaseFit(a, catalogProfile).score;
+          if (profileDiff !== 0) return profileDiff;
+        }
+        const activeDiff = Number(b.active) - Number(a.active);
+        if (activeDiff !== 0) return activeDiff;
+        const enabledDiff = Number(b.enabled) - Number(a.enabled);
+        if (enabledDiff !== 0) return enabledDiff;
+        const qosDiff = (Number(b.qos) || 0) - (Number(a.qos) || 0);
+        if (qosDiff !== 0) return qosDiff;
+        const benchmarkDiff = (b.benchmarkBreakdown?.length || 0) - (a.benchmarkBreakdown?.length || 0);
+        if (benchmarkDiff !== 0) return benchmarkDiff;
+        const scoreDiff = getBenchmarkSortValue(b.intell) - getBenchmarkSortValue(a.intell);
+        if (scoreDiff !== 0) return scoreDiff;
+        const uptimeDiff = (Number(b.uptime) || 0) - (Number(a.uptime) || 0);
+        if (uptimeDiff !== 0) return uptimeDiff;
+        const aPing = Number.isFinite(a.avg) ? Number(a.avg) : Number.POSITIVE_INFINITY;
+        const bPing = Number.isFinite(b.avg) ? Number(b.avg) : Number.POSITIVE_INFINITY;
+        if (aPing !== bPing) return aPing - bPing;
+        return String(a.label || '').localeCompare(String(b.label || ''));
+      };
+    }
+
+    function getCatalogFilteredRows() {
+      let rows = [...catalogModels];
+      if (catalogLane !== 'all') {
+        rows = rows.filter(model => model.lane === catalogLane);
+      }
+      if (catalogSearchTerm) {
+        rows = rows.filter(model =>
+          String(model.label || '').toLowerCase().includes(catalogSearchTerm)
+          || String(model.modelId || '').toLowerCase().includes(catalogSearchTerm)
+          || String(model.providerKey || '').toLowerCase().includes(catalogSearchTerm)
+          || String(model.providerName || '').toLowerCase().includes(catalogSearchTerm)
+        );
+      }
+      if (catalogFilterChips.size > 0) {
+        rows = rows.filter(model => [...catalogFilterChips].every(chip => matchesCatalogChip(model, chip)));
+      }
+      return rows.sort(getCatalogSortComparator());
+    }
+
+    function syncCatalogProfileControls() {
+      document.querySelectorAll('.catalog-profile-chip').forEach(button => {
+        const active = button.dataset.profile === catalogProfile;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      const blurb = document.getElementById('catalog-profile-blurb');
+      if (blurb) {
+        const selected = USE_CASE_PROFILES.find(profile => profile.id === catalogProfile);
+        blurb.textContent = selected?.description || USE_CASE_PROFILES[0].description;
+      }
+    }
+
+    function setCatalogProfile(nextProfile = 'all') {
+      catalogProfile = USE_CASE_PROFILES.some(profile => profile.id === nextProfile) ? nextProfile : 'all';
+      syncCatalogProfileControls();
+      renderCatalog();
+    }
+
+    function groupCatalogRows(rows) {
+      if (catalogLane === 'all') {
+        return [
+          { key: 'frontier', title: 'Frontier Stack', copy: 'Direct Anthropic, OpenAI, and Gemini style lanes kept separate from the general pool.', rows: rows.filter(model => model.lane === 'frontier' && !model.discovered) },
+          { key: 'general', title: 'Open / General', copy: 'Open routers, open-weight lanes, and general provider catalogs.', rows: rows.filter(model => model.lane !== 'frontier' && !model.discovered) },
+          { key: 'discovered', title: 'Discovered Live Only', copy: 'Rows surfaced live that are not part of the current static catalog yet.', rows: rows.filter(model => model.discovered) },
+        ].filter(group => group.rows.length > 0);
+      }
+
+      return [
+        { key: 'active', title: 'Active / Configured', copy: 'Routes already configured or currently responding.', rows: rows.filter(model => (model.active || model.enabled) && !model.discovered) },
+        { key: 'catalog', title: 'Tracked Catalog', copy: 'Known catalog entries that are not enabled yet.', rows: rows.filter(model => !model.active && !model.enabled && !model.discovered) },
+        { key: 'discovered', title: 'Discovered Live Only', copy: 'Rows discovered dynamically outside the static catalog.', rows: rows.filter(model => model.discovered) },
+      ].filter(group => group.rows.length > 0);
+    }
+
+    function getOpenDrawerModel() {
+      if (openDrawerRowKey) {
+        return allModels.find(model => getModelRowKey(model) === openDrawerRowKey)
+          || catalogModels.find(model => getModelRowKey(model) === openDrawerRowKey)
+          || null;
+      }
+      if (!openDrawerModelId) return null;
+      return allModels.find(model => model.modelId === openDrawerModelId)
+        || catalogModels.find(model => model.modelId === openDrawerModelId)
+        || null;
+    }
+
+    function buildCatalogModels(liveModels, providerMap, decorateModel) {
+      const liveMap = new Map(liveModels.map(model => [getModelRowKey(model), model]));
+      const knownRowKeys = new Set();
+      const rows = [];
+
+      for (const [modelId, label, intell, ctx, providerKey] of MODELS) {
+        const rowKey = getModelRowKey(providerKey, modelId);
+        knownRowKeys.add(rowKey);
+        const liveModel = liveMap.get(rowKey);
+
+        if (liveModel) {
+          rows.push({
+            ...liveModel,
+            active: true,
+            discovered: false,
+            isCatalogOnly: false,
+          });
+          continue;
+        }
+
+        const numericIntell = Number(intell);
+        rows.push(decorateModel({
+          modelId,
+          label,
+          intell,
+          isEstimatedScore: !(Number.isFinite(numericIntell) && numericIntell > 0),
+          ctx,
+          providerKey,
+          providerName: providerMap.get(providerKey)?.name || sources[providerKey]?.name || providerKey,
+          benchmarkBreakdown: getBenchmarkBreakdown(modelId),
+          active: false,
+          discovered: false,
+          enabled: Boolean(providerMap.get(providerKey)?.enabled),
+          status: null,
+          qos: 0,
+          avg: null,
+          uptime: 0,
+          pings: [],
+        }, { isCatalogOnly: true }));
+      }
+
+      for (const provider of providerMap.values()) {
+        if (provider?.category !== 'frontier' || !provider?.defaultModelId) continue;
+        if (provider?.catalogVisible === false) continue;
+        const rowKey = getModelRowKey(provider.key, provider.defaultModelId);
+        if (knownRowKeys.has(rowKey)) continue;
+
+        knownRowKeys.add(rowKey);
+        const liveModel = liveMap.get(rowKey);
+        if (liveModel) {
+          rows.push({
+            ...liveModel,
+            active: true,
+            discovered: false,
+            isCatalogOnly: false,
+          });
+          continue;
+        }
+
+        rows.push(decorateModel({
+          modelId: provider.defaultModelId,
+          label: provider.defaultModelLabel || provider.name,
+          intell: null,
+          isEstimatedScore: true,
+          ctx: '',
+          providerKey: provider.key,
+          providerName: provider.name || provider.key,
+          benchmarkBreakdown: getBenchmarkBreakdown(provider.defaultModelId),
+          active: false,
+          discovered: false,
+          enabled: Boolean(provider.enabled),
+          status: null,
+          qos: 0,
+          avg: null,
+          uptime: 0,
+          pings: [],
+          providerAuthLabel: provider.authLabel || null,
+          providerCostLabel: provider.costLabel || null,
+          providerSetupHint: provider.setupHint || null,
+          catalogSeeded: true,
+        }, { isCatalogOnly: true }));
+      }
+
+      for (const liveModel of liveModels) {
+        const rowKey = getModelRowKey(liveModel);
+        if (knownRowKeys.has(rowKey)) continue;
+        rows.push({
+          ...liveModel,
+          benchmarkBreakdown: Array.isArray(liveModel.benchmarkBreakdown) ? liveModel.benchmarkBreakdown : getBenchmarkBreakdown(liveModel.modelId),
+          active: true,
+          discovered: true,
+          isCatalogOnly: false,
+        });
+      }
+
+      return rows.filter(model => providerMap.get(model.providerKey)?.catalogVisible !== false);
     }
 
     async function fetchData() {
@@ -60,9 +515,11 @@ import './styles.css';
         ]);
         const data = await modelsRes.json();
         const providers = await configRes.json();
+        latestProviders = Array.isArray(providers) ? providers : [];
+        const providerMap = new Map(latestProviders.map(provider => [provider.key, provider]));
 
         // Calculate QoS for each model
-        allModels = data.models.map(m => {
+        const decorateModel = (m, fallback = {}) => {
           let isRateLimited = false;
           let rateLimitResetMs = 0;
           if (m.rateLimit) {
@@ -86,19 +543,42 @@ import './styles.css';
             }
           }
 
-          return { ...m, qos: m.qos || 0, isRateLimited };
-        });
+          const providerMeta = providerMap.get(m.providerKey) || null;
+          const lane = getModelLane(m);
+          return {
+            ...m,
+            lane,
+            laneLabel: getLaneLabel(lane),
+            providerName: providerMeta?.name || m.providerKey,
+            providerCategory: providerMeta?.category || null,
+            providerAuthLabel: providerMeta?.authLabel || null,
+            providerCostLabel: providerMeta?.costLabel || null,
+            providerSetupHint: providerMeta?.setupHint || null,
+            enabled: providerMeta?.enabled ?? m.enabled ?? false,
+            qos: m.qos || 0,
+            isRateLimited,
+            ...fallback,
+          };
+        };
+
+        allModels = data.models.map(model => decorateModel(model));
+        catalogModels = buildCatalogModels(allModels, providerMap, decorateModel);
+
+        compareRowKeys = compareRowKeys.filter(rowKey => catalogModels.some(model => getModelRowKey(model) === rowKey));
 
         setActivePinnedModel(data.pinnedModelId, data.pinnedProviderKey, data.pinnedRowKeys, data.pinningMode);
         updateChatModelOptions(allModels);
 
         // Populate Provider Checkboxes
-        renderProviderFilterGroup(providers);
+        app.renderProviderFilterGroup(providers);
 
         render(); // triggers automatic (non-user) layout pass
+        renderComparePanel();
+        renderCatalog();
         updateKPIs(allModels, data.best);
+        renderTelemetryStatusBanner();
         if (openDrawerModelId) {
-          const m = allModels.find(x => x.modelId === openDrawerModelId);
+          const m = getOpenDrawerModel();
           if (m) updateDrawerContent(m);
         }
         // Live-update logs if that tab is currently active
@@ -290,7 +770,591 @@ import './styles.css';
       return `${modelOrProviderKey || ''}::${maybeModelId || ''}`;
     }
 
-    function getPinnedRowKeysForSelection(modelId, providerKey = null, mode = pinningMode) {
+    function clamp(n, min, max) {
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function formatLatencyValue(value) {
+      return value === Infinity || value == null ? 'Offline' : `${value}ms`;
+    }
+
+    function getComparedModels() {
+      return compareRowKeys
+        .map(rowKey => allModels.find(model => getModelRowKey(model) === rowKey)
+          || catalogModels.find(model => getModelRowKey(model) === rowKey))
+        .filter(Boolean);
+    }
+
+    function isCompared(model) {
+      return compareRowKeys.includes(getModelRowKey(model));
+    }
+
+    function toggleCompareModel(modelId, providerKey) {
+      const rowKey = getModelRowKey(providerKey, modelId);
+      if (!rowKey) return;
+
+      if (compareRowKeys.includes(rowKey)) {
+        compareRowKeys = compareRowKeys.filter(key => key !== rowKey);
+      } else {
+        compareRowKeys = [...compareRowKeys, rowKey].slice(-4);
+      }
+
+      renderComparePanel();
+      renderCatalog();
+      render(true);
+      if (openDrawerModelId) {
+        const openModel = getOpenDrawerModel();
+        if (openModel) updateDrawerContent(openModel);
+      }
+    }
+
+    function clearCompareModels() {
+      compareRowKeys = [];
+      renderComparePanel();
+      renderCatalog();
+      render(true);
+    }
+
+    function buildSparklineSvg(pings = []) {
+      const series = (Array.isArray(pings) ? pings : [])
+        .slice(-12)
+        .map(ping => {
+          if (ping?.code === '200' && Number.isFinite(ping?.ms)) return Number(ping.ms);
+          return null;
+        });
+
+      if (series.length === 0 || series.every(point => point == null)) {
+        return `<svg class="sparkline-svg" viewBox="0 0 180 46" aria-hidden="true"><text x="90" y="25" text-anchor="middle" font-size="10" fill="#94a3b8">No recent ping data</text></svg>`;
+      }
+
+      const points = series.map(point => point == null ? null : clamp(point, 50, 5000));
+      const max = Math.max(...points.filter(point => point != null));
+      const min = Math.min(...points.filter(point => point != null));
+      const range = Math.max(1, max - min);
+      const stepX = series.length <= 1 ? 0 : 160 / (series.length - 1);
+
+      const coords = points.map((point, index) => {
+        const x = 10 + (stepX * index);
+        if (point == null) return { x, y: 36, missing: true };
+        const y = 36 - (((point - min) / range) * 24);
+        return { x, y, missing: false };
+      });
+
+      const polyline = coords
+        .filter(point => !point.missing)
+        .map(point => `${point.x},${point.y}`)
+        .join(' ');
+
+      const dots = coords
+        .filter(point => !point.missing)
+        .map(point => `<circle class="sparkline-dot" cx="${point.x}" cy="${point.y}" r="2" fill="#2563eb"></circle>`)
+        .join('');
+
+      const areaPoints = [`10,36`, ...coords.filter(point => !point.missing).map(point => `${point.x},${point.y}`), '170,36'].join(' ');
+
+      return `
+        <svg class="sparkline-svg" viewBox="0 0 180 46" aria-hidden="true">
+          <line x1="10" y1="36" x2="170" y2="36" stroke="#e7e5e4" stroke-width="1"></line>
+          <polyline class="sparkline-area" fill="rgba(37,99,235,0.10)" stroke="none" points="${areaPoints}"></polyline>
+          <polyline class="sparkline-line" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" points="${polyline}"></polyline>
+          ${dots}
+        </svg>
+      `;
+    }
+
+    function renderSingleModelMetricBars(model) {
+      const trackedOnly = isTrackedOnlyModel(model);
+      const scoreValue = clamp(Math.round((Number(model?.intell) || 0) * 100), 0, 100);
+      const qosValue = trackedOnly ? 0 : clamp(Number(model?.qos) || 0, 0, 100);
+      const uptimeValue = trackedOnly ? 0 : clamp(Number(model?.uptime) || 0, 0, 100);
+      const pingValue = trackedOnly ? 0 : (Number.isFinite(model?.avg) ? clamp(100 - ((Number(model.avg) / 2500) * 100), 0, 100) : 0);
+
+      const rows = [
+        { label: BENCHMARK_SCORE_LABEL, width: scoreValue, value: getBenchmarkDisplayValue(model?.intell, model?.isEstimatedScore), kind: 'score', neutral: !Number.isFinite(Number(model?.intell)) || Number(model?.intell) <= 0 },
+        { label: 'QoS', width: qosValue, value: getQosDisplayForModel(model), kind: 'qos', neutral: trackedOnly },
+        { label: 'Ping Health', width: pingValue, value: formatRouteLatency(model), kind: 'ping', neutral: trackedOnly || !Number.isFinite(model?.avg) },
+        { label: 'Availability', width: uptimeValue, value: getAvailabilityDisplay(model), kind: 'uptime', neutral: trackedOnly },
+      ];
+
+      return rows.map(row => `
+        <div class="compare-bar-row">
+          <div class="compare-bar-label">${escapeHtml(row.label)}</div>
+          <div class="compare-bar-track">
+            <div class="compare-bar-fill ${row.neutral ? 'neutral' : getCompareBarClass(row.kind, row.kind === 'ping' ? (Number.isFinite(model?.avg) ? Number(model.avg) : 9999) : row.width)}" style="width:${row.width}%"></div>
+          </div>
+          <div class="compare-bar-value">${escapeHtml(String(row.value))}</div>
+        </div>
+      `).join('');
+    }
+
+    function getCompareBarClass(kind, value) {
+      if (kind === 'ping') {
+        if (value <= 400) return 'good';
+        if (value <= 1200) return 'warn';
+        return 'bad';
+      }
+      if (kind === 'uptime') {
+        if (value >= 95) return 'good';
+        if (value >= 85) return 'warn';
+        return 'bad';
+      }
+      if (kind === 'score') {
+        if (value >= 70) return 'good';
+        if (value >= 45) return 'warn';
+        return 'bad';
+      }
+      if (kind === 'qos') {
+        if (value >= 45) return 'good';
+        if (value >= 20) return 'warn';
+        return 'bad';
+      }
+      return '';
+    }
+
+    function renderCompareMetricRows(models, metric) {
+      if (!models.length) return '';
+
+      let max = 1;
+      if (metric.key === 'ping') {
+        const finiteValues = models.map(model => Number(model.avg)).filter(Number.isFinite);
+        max = finiteValues.length ? Math.max(...finiteValues) : 1;
+      } else if (metric.key === 'intell') {
+        max = 100;
+      } else if (metric.key === 'uptime') {
+        max = 100;
+      } else {
+        const values = models.map(metric.getValue).filter(Number.isFinite);
+        max = values.length ? Math.max(...values) : 1;
+      }
+
+      return models.map(model => {
+        const rawValue = metric.getValue(model);
+        const normalizedValue = metric.key === 'ping'
+          ? (Number.isFinite(rawValue) ? Math.max(0, max - rawValue) : 0)
+          : rawValue;
+        const barWidth = max > 0 ? clamp((normalizedValue / max) * 100, 0, 100) : 0;
+        const neutral = metric.isAvailable ? !metric.isAvailable(model) : false;
+        return `
+          <div class="compare-bar-row">
+            <div class="compare-bar-label">${escapeHtml(model.label)}</div>
+            <div class="compare-bar-track">
+              <div class="compare-bar-fill ${neutral ? 'neutral' : getCompareBarClass(metric.kind, Number.isFinite(rawValue) ? rawValue : 0)}" style="width:${barWidth}%"></div>
+            </div>
+            <div class="compare-bar-value">${escapeHtml(metric.format(model))}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function getDrawerDecisionFactors(model) {
+      const factors = [];
+      if (typeof model.intell === 'number' && model.intell > 0) {
+        factors.push(`${BENCHMARK_SCORE_LABEL} ${Math.round(model.intell * 100)}${model.isEstimatedScore ? ' (estimated)' : ''}`);
+      } else {
+        factors.push('No benchmark reference score yet');
+      }
+      if (isTrackedOnlyModel(model)) {
+        factors.push('Tracked route, waiting for first live probe');
+      } else if (Number.isFinite(model.avg)) {
+        factors.push(`Recent ping ${model.avg}ms`);
+      } else {
+        factors.push('No recent successful ping');
+      }
+      factors.push(`Availability ${getAvailabilityDisplay(model)}`);
+      if (model.isRateLimited) factors.push('Currently rate-limited');
+      if (model.status === 'noauth') factors.push('Missing auth for this route');
+      if (model.status === 'excluded') factors.push('Excluded by operator policy');
+      if (model.status === 'disabled') factors.push('Provider disabled');
+      return factors;
+    }
+
+    function renderBenchmarkSourceGroups() {
+      return BENCHMARK_SOURCE_GROUPS.map(group => `
+        <div class="benchmark-source-group">
+          <div class="benchmark-source-group-title">${escapeHtml(group.title)}</div>
+          <div class="benchmark-source-list">
+            ${group.sources.map(source => `
+              <a class="benchmark-source-link" href="${escapeHtml(source.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(source.shortLabel)}">
+                <span>${escapeHtml(source.title)}</span>
+              </a>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function getBenchmarkBreakdownBarWidth(row) {
+      const value = Number(row?.value);
+      if (!Number.isFinite(value) || value <= 0) return 0;
+      if (row.unit === 'elo') {
+        return clamp(((value - 700) / 900) * 100, 0, 100);
+      }
+      if (row.unit === 'ratio') {
+        return clamp(value * 100, 0, 100);
+      }
+      return 0;
+    }
+
+    function renderBenchmarkBreakdownChart(rows) {
+      const data = Array.isArray(rows) ? rows : [];
+      if (!data.length) return '';
+      return `
+        <div class="benchmark-breakdown-chart">
+          ${data.map(row => `
+            <div class="benchmark-chart-row">
+              <div class="benchmark-chart-label">${escapeHtml(row.sourceTitle)}</div>
+              <div class="benchmark-chart-track">
+                <div class="benchmark-chart-fill" style="width:${getBenchmarkBreakdownBarWidth(row)}%"></div>
+              </div>
+              <div class="benchmark-chart-value">${escapeHtml(row.displayValue || String(row.value))}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function renderModelBenchmarkBreakdown(model, maxRows = Infinity) {
+      const rows = Array.isArray(model?.benchmarkBreakdown) ? model.benchmarkBreakdown.slice(0, maxRows) : [];
+      if (!rows.length) {
+        return `<div class="drawer-section-copy">No source-specific benchmark rows are seeded for this model yet. The current ${escapeHtml(BENCHMARK_SCORE_LABEL)} still comes from the repo-maintained reference score.</div>`;
+      }
+
+      return `
+        ${renderBenchmarkBreakdownChart(rows)}
+        <div class="benchmark-breakdown-list">
+          ${rows.map(row => `
+            <div class="benchmark-breakdown-row">
+              <div>
+                <div class="benchmark-breakdown-title">${escapeHtml(row.sourceTitle)}</div>
+                <div class="benchmark-breakdown-meta">${escapeHtml(row.domain)}</div>
+              </div>
+              <div class="benchmark-breakdown-value-wrap">
+                <div class="benchmark-breakdown-value">${escapeHtml(row.displayValue || String(row.value))}</div>
+                ${row.url ? `<a class="benchmark-breakdown-link" href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">Source</a>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function syncCatalogControls() {
+      document.querySelectorAll('[id^="catalog-lane-"]').forEach(button => {
+        const active = button.id === `catalog-lane-${catalogLane}`;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('[id^="catalog-view-"]').forEach(button => {
+        const active = button.id === `catalog-view-${catalogView}`;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      document.querySelectorAll('.catalog-filter-chip').forEach(button => {
+        const key = button.dataset.filter;
+        const active = key ? catalogFilterChips.has(key) : false;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      const sortSelect = document.getElementById('catalog-sort-select');
+      if (sortSelect) sortSelect.value = catalogSort;
+      syncCatalogProfileControls();
+    }
+
+    function setCatalogLane(nextLane = 'all') {
+      catalogLane = ['all', 'general', 'frontier'].includes(nextLane) ? nextLane : 'all';
+      syncCatalogControls();
+      renderCatalog();
+    }
+
+    function setCatalogView(nextView = 'table') {
+      catalogView = ['table', 'cards', 'compare'].includes(nextView) ? nextView : 'table';
+      syncCatalogControls();
+      renderCatalog();
+    }
+
+    function setCatalogSort(nextSort = 'best') {
+      catalogSort = ['best', 'benchmark', 'ping', 'availability', 'benchmarked', 'az'].includes(nextSort) ? nextSort : 'best';
+      syncCatalogControls();
+      renderCatalog();
+    }
+
+    function toggleCatalogFilter(filterKey) {
+      if (!filterKey) return;
+      if (catalogFilterChips.has(filterKey)) catalogFilterChips.delete(filterKey);
+      else catalogFilterChips.add(filterKey);
+      syncCatalogControls();
+      renderCatalog();
+    }
+
+    function clearCatalogFilters() {
+      catalogFilterChips = new Set();
+      syncCatalogControls();
+      renderCatalog();
+    }
+
+    function handleCatalogSearch() {
+      catalogSearchTerm = (document.getElementById('catalog-search-input')?.value || '').toLowerCase();
+      renderCatalog();
+    }
+
+    function renderCatalogOverview() {
+      const container = document.getElementById('catalog-overview');
+      if (!container) return;
+      const total = catalogModels.length;
+      const frontier = catalogModels.filter(model => model.lane === 'frontier').length;
+      const general = catalogModels.filter(model => model.lane !== 'frontier').length;
+      const benchmarked = catalogModels.filter(model => (model.benchmarkBreakdown?.length || 0) > 0).length;
+      const active = catalogModels.filter(model => model.active).length;
+
+      const cards = [
+        { label: 'Tracked Models', value: total, meta: `${active} active now across every known lane` },
+        { label: 'Frontier Stack', value: frontier, meta: 'Direct Claude, GPT/Codex, Gemini style lanes' },
+        { label: 'Open / General', value: general, meta: 'Routers, open-weight lanes, and general providers' },
+        { label: 'Public Benchmarks', value: benchmarked, meta: 'Models with source-specific benchmark rows today' },
+      ];
+
+      container.innerHTML = cards.map(card => `
+        <article class="catalog-overview-card">
+          <div class="catalog-overview-label">${escapeHtml(card.label)}</div>
+          <div class="catalog-overview-value">${escapeHtml(String(card.value))}</div>
+          <div class="catalog-overview-meta">${escapeHtml(card.meta)}</div>
+        </article>
+      `).join('');
+    }
+
+    function renderCatalogUseCaseFit(model) {
+      if (catalogProfile === 'all') return '';
+      const fit = getUseCaseFit(model, catalogProfile);
+      if (fit.score <= 0) return `<div class="catalog-fit-copy">No strong ${escapeHtml(getProfileLabel(catalogProfile))} signal yet.</div>`;
+      return `
+        <div class="catalog-fit-block">
+          <div class="catalog-fit-score">${escapeHtml(getProfileLabel(catalogProfile))} fit ${fit.score}</div>
+          <div class="catalog-fit-copy">${escapeHtml(fit.reasons.slice(0, 2).join(' • ') || 'General fit')}</div>
+        </div>
+      `;
+    }
+
+    function renderCatalogTableSection(group) {
+      const rows = group.rows.map(model => {
+        const sourceCount = model.benchmarkBreakdown?.length || 0;
+        const bestForTags = getCatalogBestForTags(model);
+        const rowKey = getModelRowKey(model);
+        const isComparedRow = isCompared(model);
+        const pingCaption = model.active && Number.isFinite(model.avg) ? `Ping ${model.avg}ms` : (isTrackedOnlyModel(model) ? 'Tracked, waiting for first probe' : 'No live ping yet');
+
+        return `
+          <tr class="catalog-table-row ${isComparedRow ? 'is-compared' : ''}" onclick='openDrawer(${JSON.stringify(model).replace(/'/g, "&apos;")})' style="cursor:pointer;">
+            <td>
+              <div class="catalog-row-actions">
+                <button class="compare-row-btn ${isComparedRow ? 'active' : ''}" type="button" onclick="event.stopPropagation(); toggleCompareModel('${model.modelId}', '${model.providerKey}')" title="${isComparedRow ? 'Remove from compare' : 'Compare model'}">↔</button>
+              </div>
+            </td>
+            <td>
+              <div class="catalog-model-cell">
+                <div class="catalog-model-row-top">
+                  <div class="catalog-model-title">${escapeHtml(model.label)}</div>
+                  <span class="lane-chip ${model.lane === 'frontier' ? 'frontier' : 'general'}">${escapeHtml(model.laneLabel)}</span>
+                </div>
+                <div class="catalog-model-meta">${escapeHtml(model.modelId)}</div>
+                <div class="catalog-tag-row">
+                  ${bestForTags.map(tag => `<span class="catalog-tag">${escapeHtml(tag)}</span>`).join('')}
+                </div>
+              </div>
+            </td>
+            <td>
+              <div class="catalog-model-title">${escapeHtml(model.providerName || model.providerKey)}</div>
+              <div class="catalog-model-meta">${escapeHtml(model.providerKey)}</div>
+              <div class="catalog-tag-row">
+                ${model.providerAuthLabel ? `<span class="catalog-tag subtle">${escapeHtml(model.providerAuthLabel)}</span>` : ''}
+                ${model.providerCostLabel ? `<span class="catalog-tag subtle">${escapeHtml(model.providerCostLabel)}</span>` : ''}
+              </div>
+            </td>
+            <td>
+              <div class="catalog-model-title">${getBenchmarkDisplayValue(model.intell, model.isEstimatedScore)}</div>
+              <div class="catalog-source-count">${model.isEstimatedScore ? 'Estimated ref' : 'Verified ref'}</div>
+              ${renderCatalogUseCaseFit(model)}
+            </td>
+            <td>
+              <div class="catalog-model-title">${sourceCount}</div>
+              <div class="catalog-source-count">${sourceCount === 1 ? 'public row' : 'public rows'}</div>
+            </td>
+            <td>
+              <span class="catalog-state-chip ${getCatalogStateClass(model)}">${escapeHtml(getCatalogStateLabel(model))}</span>
+              <div class="catalog-model-meta" style="margin-top:6px;">${escapeHtml(pingCaption)}</div>
+            </td>
+            <td>
+              <div class="catalog-mini-chart">
+                ${buildSparklineSvg(model.pings)}
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <section class="catalog-section">
+          <div class="catalog-section-header">
+            <div>
+              <h3 class="catalog-section-title">${escapeHtml(group.title)}</h3>
+              <p class="catalog-section-copy">${escapeHtml(group.copy)}</p>
+            </div>
+            <div class="catalog-section-count">${group.rows.length} models</div>
+          </div>
+          <div class="catalog-section-surface">
+            <table class="catalog-table">
+              <thead>
+                <tr>
+                  <th width="40"></th>
+                  <th>Model</th>
+                  <th>Provider</th>
+                  <th>Benchmark Score</th>
+                  <th>Public Rows</th>
+                  <th>Current State</th>
+                  <th width="180">Trend</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderCatalogCardSection(group) {
+      return `
+        <section class="catalog-section">
+          <div class="catalog-section-header">
+            <div>
+              <h3 class="catalog-section-title">${escapeHtml(group.title)}</h3>
+              <p class="catalog-section-copy">${escapeHtml(group.copy)}</p>
+            </div>
+            <div class="catalog-section-count">${group.rows.length} models</div>
+          </div>
+          <div class="catalog-card-grid">
+            ${group.rows.map(model => {
+              const sourceCount = model.benchmarkBreakdown?.length || 0;
+              const compared = isCompared(model);
+              return `
+                <article class="catalog-card ${compared ? 'is-compared' : ''}" onclick='openDrawer(${JSON.stringify(model).replace(/'/g, "&apos;")})'>
+                  <div class="catalog-card-top">
+                    <div class="provider-chip-row">
+                      <span class="lane-chip ${model.lane === 'frontier' ? 'frontier' : 'general'}">${escapeHtml(model.laneLabel)}</span>
+                      <span class="catalog-state-chip ${getCatalogStateClass(model)}">${escapeHtml(getCatalogStateLabel(model))}</span>
+                    </div>
+                    <button class="compare-remove-btn" type="button" onclick="event.stopPropagation(); toggleCompareModel('${model.modelId}', '${model.providerKey}')">${compared ? 'Compared' : 'Compare'}</button>
+                  </div>
+                  <div>
+                    <h3 class="catalog-card-title">${escapeHtml(model.label)}</h3>
+                    <p class="catalog-card-subtitle">${escapeHtml(model.providerName || model.providerKey)} • ${escapeHtml(model.modelId)}</p>
+                  </div>
+                  <div class="catalog-tag-row">
+                    ${getCatalogBestForTags(model).map(tag => `<span class="catalog-tag">${escapeHtml(tag)}</span>`).join('')}
+                    ${model.providerAuthLabel ? `<span class="catalog-tag subtle">${escapeHtml(model.providerAuthLabel)}</span>` : ''}
+                  </div>
+                  <div class="compare-card-metrics">
+                    <div class="compare-metric">
+                      <div class="compare-metric-label">${escapeHtml(BENCHMARK_SCORE_LABEL)}</div>
+                      <div class="compare-metric-value">${getBenchmarkDisplayValue(model.intell, model.isEstimatedScore)}</div>
+                    </div>
+                    <div class="compare-metric">
+                      <div class="compare-metric-label">Public Rows</div>
+                      <div class="compare-metric-value">${escapeHtml(String(sourceCount))}</div>
+                    </div>
+                    <div class="compare-metric">
+                      <div class="compare-metric-label">Ping</div>
+                      <div class="compare-metric-value">${escapeHtml(formatRouteLatency(model))}</div>
+                    </div>
+                    <div class="compare-metric">
+                      <div class="compare-metric-label">Availability</div>
+                      <div class="compare-metric-value">${escapeHtml(getAvailabilityDisplay(model))}</div>
+                    </div>
+                  </div>
+                  ${renderCatalogUseCaseFit(model)}
+                  <div class="sparkline-wrap">
+                    ${buildSparklineSvg(model.pings)}
+                    <div class="sparkline-caption">${escapeHtml(model.providerSetupHint || 'Open the drawer for setup details, benchmark provenance, and lane guidance.')}</div>
+                  </div>
+                  ${sourceCount > 0 ? renderBenchmarkBreakdownChart((model.benchmarkBreakdown || []).slice(0, 3)) : '<div class="catalog-empty-chart">No public benchmark rows seeded yet.</div>'}
+                </article>
+              `;
+            }).join('')}
+          </div>
+        </section>
+      `;
+    }
+
+    function renderCatalogCompareView(rows) {
+      const compared = getComparedModels();
+      if (compared.length === 0) {
+        return `
+          <div class="catalog-empty-state">
+            <div class="catalog-empty-title">Select models to compare</div>
+            <p>Use the compare controls in table or card view to pin up to four models. Compare view then gives you the side-by-side cards, loading-bar charts, and public benchmark rows in one place.</p>
+            <div class="catalog-empty-actions">
+              <button class="settings-provider-inline-btn" type="button" onclick="setCatalogView('cards')">Browse Cards</button>
+              <button class="settings-provider-inline-btn" type="button" onclick="setCatalogView('table')">Browse Table</button>
+            </div>
+          </div>
+        `;
+      }
+
+      return `
+        <section class="catalog-section">
+          <div class="catalog-section-header">
+            <div>
+              <h3 class="catalog-section-title">Catalog Compare</h3>
+              <p class="catalog-section-copy">Compare tracked models side by side using the same benchmark, QoS, ping, and availability language used elsewhere in the dashboard.</p>
+            </div>
+            <div class="catalog-section-count">${compared.length} selected</div>
+          </div>
+          <div id="catalog-compare-panel" class="compare-panel"></div>
+          <div class="catalog-compare-copy">Filtered rows available in this view: ${rows.length}. Compare keeps your current selections even if some are not active right now.</div>
+        </section>
+      `;
+    }
+
+    function renderCatalog() {
+      const results = document.getElementById('catalog-results');
+      const summary = document.getElementById('catalog-summary');
+      if (!results || !summary) return;
+
+      syncCatalogControls();
+      renderCatalogOverview();
+
+      const rows = getCatalogFilteredRows();
+      const benchmarked = rows.filter(model => (model.benchmarkBreakdown?.length || 0) > 0).length;
+      const active = rows.filter(model => model.active).length;
+      const sortLabels = {
+        best: 'Best overall',
+        benchmark: 'Best benchmark',
+        ping: 'Fastest live',
+        availability: 'Most available',
+        benchmarked: 'Most benchmarked',
+        az: 'A-Z',
+      };
+      summary.textContent = `${rows.length} shown • ${benchmarked} benchmarked • ${active} live now • ${escapeHtml(getProfileLabel(catalogProfile))} profile • sorted by ${sortLabels[catalogSort] || 'Best overall'}`;
+
+      if (!rows.length) {
+        results.innerHTML = '<div class="catalog-empty-state"><div class="catalog-empty-title">No models match the current catalog view</div><p>Try clearing one or more chips, switching lanes, or changing the search term.</p><div class="catalog-empty-actions"><button class="settings-provider-inline-btn" type="button" onclick="clearCatalogFilters()">Clear filters</button></div></div>';
+        return;
+      }
+
+      if (catalogView === 'compare') {
+        results.innerHTML = renderCatalogCompareView(rows);
+        renderModelComparePanel('catalog-compare-panel', getComparedModels(), {
+          title: 'Catalog Comparison',
+          copy: `Compare tracked models across ${escapeHtml(BENCHMARK_SCORE_LABEL)}, QoS, live ping, and availability. Catalog comparison keeps inactive but important routes visible while you decide what to configure.`,
+        });
+        return;
+      }
+
+      const groups = groupCatalogRows(rows);
+      results.innerHTML = groups.map(group => (
+        catalogView === 'cards' ? renderCatalogCardSection(group) : renderCatalogTableSection(group)
+      )).join('');
+    }
+
+    function getPinnedRowKeysForSelection(modelId, providerKey = null, mode = appState.pinningMode) {
       if (!modelId) return [];
       if (mode === 'exact') return [getModelRowKey(providerKey, modelId)];
 
@@ -305,46 +1369,374 @@ import './styles.css';
       if (badge) badge.style.display = activePinnedRowKeys.length > 0 ? 'inline-block' : 'none';
 
       if (openDrawerModelId) {
-        const openModel = allModels.find(m => m.modelId === openDrawerModelId);
+        const openModel = getOpenDrawerModel();
         if (openModel) updateDrawerContent(openModel);
       }
     }
 
-    function setActivePinnedModel(modelId, providerKey = null, resolvedRowKeys = null, mode = pinningMode) {
+    function setActivePinnedModel(modelId, providerKey = null, resolvedRowKeys = null, mode = appState.pinningMode) {
       activePinnedModelId = modelId || null;
       activePinnedProviderKey = modelId ? (providerKey || null) : null;
-      pinningMode = mode === 'exact' ? 'exact' : 'canonical';
+      appState.pinningMode = mode === 'exact' ? 'exact' : 'canonical';
       activePinnedRowKeys = Array.isArray(resolvedRowKeys)
         ? [...new Set(resolvedRowKeys.filter(Boolean))]
-        : getPinnedRowKeysForSelection(activePinnedModelId, activePinnedProviderKey, pinningMode);
+        : getPinnedRowKeysForSelection(activePinnedModelId, activePinnedProviderKey, appState.pinningMode);
       syncPinnedModelUI();
     }
 
-    function updateKPIs(models, bestModelId) {
-      const upModels = models.filter(m => m.status === 'up');
+    function closeDrawer() {
+      openDrawerModelId = null;
+      openDrawerRowKey = null;
+      const drawer = document.getElementById('drawer');
+      const overlay = document.getElementById('overlay');
+      if (drawer) drawer.classList.remove('open');
+      if (overlay) overlay.classList.remove('active');
+    }
 
-      const allProviders = new Set(models.map(m => m.providerKey));
-      const onlineProviders = new Set();
-      const now = Date.now();
-      models.forEach(m => {
-        if (m.status === 'up' && !m.isRateLimited) {
-          if (m.lastPing !== 'TIMEOUT' || m.uptime > 0) {
-            onlineProviders.add(m.providerKey);
-          }
+    function updateDrawerContent(model) {
+      const drawerTitle = document.getElementById('drawer-title');
+      const drawerContent = document.getElementById('drawer-content');
+      if (!drawerContent || !model) return;
+
+      if (drawerTitle) drawerTitle.textContent = model.label || model.modelId;
+
+      const compared = isCompared(model);
+      const decisionFactors = getDrawerDecisionFactors(model)
+        .map(factor => `<span class="drawer-explainer-pill">${escapeHtml(factor)}</span>`)
+        .join('');
+
+      const pingHistory = Array.isArray(model.pings) && model.pings.length > 0
+        ? model.pings
+          .slice(-8)
+          .reverse()
+          .map(ping => `<span class="drawer-history-chip">${escapeHtml(`${ping.code}:${ping.ms}ms`)}</span>`)
+          .join('')
+        : '<span style="color: var(--text-muted); font-size: 0.8rem;">No recent ping history.</span>';
+
+      drawerContent.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:18px;">
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span class="lane-chip ${model.lane === 'frontier' ? 'frontier' : 'general'}">${escapeHtml(model.laneLabel || getLaneLabel(model.lane))}</span>
+            <span class="provider-rec-pill">${escapeHtml(model.providerKey)}</span>
+            ${model.providerCostLabel ? `<span class="provider-rec-pill">${escapeHtml(model.providerCostLabel)}</span>` : ''}
+            ${model.providerAuthLabel ? `<span class="provider-count-pill">${escapeHtml(model.providerAuthLabel)}</span>` : ''}
+            <span class="provider-count-pill">${escapeHtml(model.status === 'noauth' ? 'No Auth' : model.status)}</span>
+          </div>
+          <div class="drawer-provider-note">${escapeHtml(model.providerSetupHint || (model.lane === 'frontier' ? 'Frontier lanes usually need a paid provider key plus a configured model.' : 'Open / general lanes may still require API keys depending on provider.'))}</div>
+          <div class="drawer-stats-grid">
+            <div class="autoupdate-stat">
+              <div class="autoupdate-stat-label">QoS</div>
+              <div class="autoupdate-stat-value" style="color:${isTrackedOnlyModel(model) ? 'var(--text-muted)' : getQosColor(model.qos)}">${getQosDisplayForModel(model)}</div>
+            </div>
+            <div class="autoupdate-stat">
+              <div class="autoupdate-stat-label">${escapeHtml(BENCHMARK_SCORE_LABEL)}</div>
+              <div class="autoupdate-stat-value">${getBenchmarkDisplayValue(model.intell, model.isEstimatedScore)}</div>
+            </div>
+            <div class="autoupdate-stat">
+              <div class="autoupdate-stat-label">Ping</div>
+              <div class="autoupdate-stat-value">${escapeHtml(formatRouteLatency(model))}</div>
+            </div>
+            <div class="autoupdate-stat">
+              <div class="autoupdate-stat-label">Availability</div>
+              <div class="autoupdate-stat-value">${escapeHtml(getAvailabilityDisplay(model))}</div>
+            </div>
+          </div>
+          <div class="drawer-section">
+            <div class="drawer-section-title">Why This Route Ranks Here</div>
+            <div class="drawer-section-copy">Routing balances benchmark quality with current health. This route’s current decision factors are shown below.</div>
+            <div class="drawer-explainer-list">${decisionFactors}</div>
+          </div>
+          ${catalogProfile !== 'all' ? `
+          <div class="drawer-section">
+            <div class="drawer-section-title">${escapeHtml(getProfileLabel(catalogProfile))} Fit</div>
+            <div class="drawer-section-copy">Catalog profile scoring lets you bias the decision surface toward your current use case without changing routing automatically.</div>
+            ${renderCatalogUseCaseFit(model)}
+          </div>` : ''}
+          <div class="drawer-section">
+            <div class="drawer-section-title">Performance Snapshot</div>
+            <div class="drawer-section-copy">The same loading-bar chart language used in compare mode, but focused on this one route so you can read it quickly before opening the full compare panel.</div>
+            ${renderSingleModelMetricBars(model)}
+          </div>
+          <div class="drawer-section">
+            <div class="drawer-section-title">${escapeHtml(BENCHMARK_SCORE_LABEL)}</div>
+            <div class="drawer-section-copy">${escapeHtml(BENCHMARK_SCORE_DESCRIPTION)}</div>
+            <div class="drawer-explainer-list">
+              <span class="benchmark-source-chip">${model.isEstimatedScore ? 'Estimated / incomplete reference' : 'Verified in current score map'}</span>
+              <span class="benchmark-source-chip">${escapeHtml(BENCHMARK_SCORE_PROVENANCE.currentReference.title)}</span>
+              <span class="benchmark-source-chip">${escapeHtml(`${model.benchmarkBreakdown?.length || 0} public row${(model.benchmarkBreakdown?.length || 0) === 1 ? '' : 's'}`)}</span>
+            </div>
+            <div class="drawer-section-copy">${escapeHtml(BENCHMARK_SCORE_PROVENANCE.currentReference.summary)}</div>
+            <div class="drawer-section-title">Public Benchmark Rows</div>
+            ${renderModelBenchmarkBreakdown(model)}
+            <div class="benchmark-source-grid">${renderBenchmarkSourceGroups()}</div>
+            <div class="drawer-section-copy">${escapeHtml(BENCHMARK_SCORE_PROVENANCE.note)}</div>
+          </div>
+          <div class="drawer-section">
+            <div class="drawer-section-title">Trend Line</div>
+            <div class="sparkline-wrap">
+              ${buildSparklineSvg(model.pings)}
+              <div class="sparkline-caption">Recent ping history for this exact provider/model route. Use it as a quick latency trend line, not a full long-term time series.</div>
+            </div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">${pingHistory}</div>
+          </div>
+          <div class="drawer-section">
+            <div class="drawer-section-title">Model ID</div>
+            <code style="display:block; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:#ffffff; word-break:break-all;">${escapeHtml(model.modelId)}</code>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn" style="background:white; color:var(--text); border:1px solid var(--border);" onclick="pingModelNow('${model.modelId}')">Ping Now</button>
+            <button class="btn" style="background:white; color:var(--text); border:1px solid var(--border);" onclick="toggleCompareModel('${model.modelId}', '${model.providerKey}')">${compared ? 'Remove from Compare' : 'Compare Model'}</button>
+            <button class="btn" style="background:${model.status === 'banned' ? '#ecfdf5' : '#fff1f2'}; color:${model.status === 'banned' ? '#065f46' : '#b91c1c'}; border:1px solid ${model.status === 'banned' ? '#a7f3d0' : '#fecaca'};" onclick="toggleBan('${model.modelId}', '${model.status}')">${model.status === 'banned' ? 'Unban Model' : 'Ban Model'}</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function openDrawer(model) {
+      if (!model) return;
+      openDrawerModelId = model.modelId;
+      openDrawerRowKey = getModelRowKey(model);
+      updateDrawerContent(model);
+      const drawer = document.getElementById('drawer');
+      const overlay = document.getElementById('overlay');
+      if (drawer) drawer.classList.add('open');
+      if (overlay) overlay.classList.add('active');
+    }
+
+    async function toggleBan(modelId, currentStatus) {
+      const banned = currentStatus !== 'banned';
+      try {
+        const response = await fetch('/api/models/ban', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ modelId, banned }),
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || `Ban request failed (${response.status}).`);
         }
-      });
+        await fetchData();
+      } catch (error) {
+        console.error('Failed to update ban state', error);
+      }
+    }
 
-      document.getElementById('kpi-active').textContent = upModels.length;
-      document.getElementById('kpi-providers').textContent = onlineProviders.size;
+    async function pingModelNow(modelId) {
+      try {
+        const response = await fetch('/api/models/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ modelId }),
+        });
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || `Ping failed (${response.status}).`);
+        }
+        await fetchData();
+      } catch (error) {
+        console.error('Failed to ping model', error);
+      }
+    }
 
-      drawModelsConstellation(models.length, upModels.length);
-      drawProvidersNetwork(allProviders.size, onlineProviders.size);
+    function updateKPIs(models, bestModelId) {
+      const telemetryModels = getTelemetryDataset(models, false);
+      const upModels = telemetryModels.filter(m => m.status === 'up');
+      const openLaneModels = telemetryModels.filter(m => m.lane !== 'frontier');
+      const frontierModels = telemetryModels.filter(m => m.lane === 'frontier');
+      const openLaneOnline = openLaneModels.filter(m => m.status === 'up');
+      const frontierOnline = frontierModels.filter(m => m.status === 'up');
+      const openBest = calculateBestModel(openLaneModels);
+      const frontierBest = calculateBestModel(frontierModels);
+      const trackedOpenCount = models.filter(m => m.lane !== 'frontier').length;
+      const trackedFrontierCount = models.filter(m => m.lane === 'frontier').length;
+
+      document.getElementById('kpi-open-best').textContent = openBest
+        ? openBest.label
+        : openLaneModels.length > 0
+          ? 'No Open Models Online'
+          : trackedOpenCount > 0
+            ? 'No Open Lanes Active'
+            : 'No Open Models Tracked';
+      document.getElementById('kpi-frontier-best').textContent = frontierBest
+        ? frontierBest.label
+        : frontierModels.length > 0
+          ? 'No Frontier Models Online'
+          : trackedFrontierCount > 0
+            ? 'No Frontier Lanes Active'
+            : 'Not Configured';
+      document.getElementById('kpi-open-meta').textContent = openLaneModels.length > 0
+        ? `${openLaneOnline.length}/${openLaneModels.length} open telemetry rows online`
+        : trackedOpenCount > 0
+          ? `${trackedOpenCount} open models tracked in catalog`
+          : 'No open lanes tracked yet';
+      document.getElementById('kpi-frontier-meta').textContent = frontierModels.length > 0
+        ? `${frontierOnline.length}/${frontierModels.length} frontier telemetry rows online`
+        : trackedFrontierCount > 0
+          ? `${trackedFrontierCount} frontier models tracked in catalog`
+          : 'Add a frontier lane to compare it here';
+
+      drawModelsConstellation(openLaneModels.length || trackedOpenCount || models.length, openLaneOnline.length || upModels.length);
+      drawProvidersNetwork(frontierModels.length || trackedFrontierCount || models.length, frontierOnline.length || upModels.length);
 
       // Show the model the server is actually routing to
       const bestModel = bestModelId ? models.find(m => m.modelId === bestModelId) : null;
-      document.getElementById('kpi-best').textContent = bestModel ? bestModel.label : 'None Online';
+      document.getElementById('kpi-best').textContent = bestModel ? bestModel.label : 'No Live Route';
 
       drawCurrentModelAnimation(!!bestModel);
+    }
+
+    function renderTelemetryStatusBanner() {
+      const banner = document.getElementById('telemetry-status-banner');
+      if (!banner) return;
+
+      const enabledProviders = latestProviders.filter(provider => provider.enabled === true);
+      const configuredProviders = latestProviders.filter(provider => provider.hasKey || String(provider.baseUrl || '').trim() || String(provider.modelId || '').trim());
+      const liveModels = allModels.filter(model => model.status === 'up');
+
+      if (configuredProviders.length === 0) {
+        banner.style.display = 'block';
+        banner.innerHTML = `
+          <div class="catalog-empty-title">No provider lanes are configured yet</div>
+          <p>The dashboard is showing tracked models, but your current config has no API keys and no enabled providers. Add a lane in Settings or use Setup Instructions to bring your first provider online.</p>
+        `;
+        return;
+      }
+
+      if (enabledProviders.length === 0) {
+        banner.style.display = 'block';
+        banner.innerHTML = `
+          <div class="catalog-empty-title">Providers are configured but not enabled</div>
+          <p>ModelFoundry now defaults to explicit activation. Turn on one or more provider lanes in Settings to start live telemetry and routing.</p>
+        `;
+        return;
+      }
+
+      if (enabledProviders.length > 0 && liveModels.length === 0) {
+        banner.style.display = 'block';
+        banner.innerHTML = `
+          <div class="catalog-empty-title">Enabled lanes are still waiting for healthy live rows</div>
+          <p>Your providers are enabled, but nothing is currently responding as <code>up</code>. Check auth, ping status, or provider errors in the drawer and Settings.</p>
+        `;
+        return;
+      }
+
+      banner.style.display = 'none';
+      banner.innerHTML = '';
+    }
+
+    function renderModelComparePanel(containerId, comparedModels, options = {}) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      if (comparedModels.length === 0) {
+        container.classList.add('compare-panel-empty');
+        container.innerHTML = '';
+        return;
+      }
+
+      container.classList.remove('compare-panel-empty');
+
+      const compareCards = comparedModels.map(model => `
+        <article class="compare-card">
+          <div class="compare-card-top">
+            <div>
+              <div class="provider-chip-row">
+                <span class="lane-chip ${model.lane === 'frontier' ? 'frontier' : 'general'}">${escapeHtml(model.laneLabel)}</span>
+                <span class="provider-count-pill">${escapeHtml(model.providerKey)}</span>
+              </div>
+              <h3 class="compare-card-title">${escapeHtml(model.label)}</h3>
+              <p class="compare-card-subtitle">${escapeHtml(model.modelId)}</p>
+            </div>
+            <button class="compare-remove-btn" type="button" onclick="toggleCompareModel('${model.modelId}', '${model.providerKey}')">Remove</button>
+          </div>
+          <div class="compare-card-metrics">
+            <div class="compare-metric">
+              <div class="compare-metric-label">${escapeHtml(BENCHMARK_SCORE_LABEL)}</div>
+              <div class="compare-metric-value">${getBenchmarkDisplayValue(model.intell, model.isEstimatedScore)}</div>
+            </div>
+                    <div class="compare-metric">
+                      <div class="compare-metric-label">QoS</div>
+                      <div class="compare-metric-value" style="color:${isTrackedOnlyModel(model) ? 'var(--text-muted)' : getQosColor(model.qos)}">${getQosDisplayForModel(model)}</div>
+                    </div>
+                    <div class="compare-metric">
+                      <div class="compare-metric-label">Ping</div>
+                      <div class="compare-metric-value">${escapeHtml(formatRouteLatency(model))}</div>
+                    </div>
+                    <div class="compare-metric">
+                      <div class="compare-metric-label">Availability</div>
+                      <div class="compare-metric-value">${escapeHtml(getAvailabilityDisplay(model))}</div>
+                    </div>
+                  </div>
+                  <div class="sparkline-wrap">
+                    ${buildSparklineSvg(model.pings)}
+            <div class="sparkline-caption">Last ${Math.min((model.pings || []).length, 12)} pings for ${escapeHtml(model.providerKey)}.</div>
+          </div>
+          ${renderModelBenchmarkBreakdown(model, 3)}
+        </article>
+      `).join('');
+
+      const chartMetrics = [
+        {
+          key: 'intell',
+          kind: 'score',
+          title: BENCHMARK_SCORE_LABEL,
+          getValue: model => Math.round((Number(model.intell) || 0) * 100),
+          format: model => `${Math.round((Number(model.intell) || 0) * 100)}`,
+        },
+        {
+          key: 'qos',
+          kind: 'qos',
+          title: 'QoS',
+          getValue: model => Number(model.qos) || 0,
+          format: model => getQosDisplayForModel(model),
+          isAvailable: model => !isTrackedOnlyModel(model),
+        },
+        {
+          key: 'ping',
+          kind: 'ping',
+          title: 'Avg Ping',
+          getValue: model => Number.isFinite(model.avg) ? Number(model.avg) : Infinity,
+          format: model => formatRouteLatency(model),
+          isAvailable: model => !isTrackedOnlyModel(model) && Number.isFinite(model.avg),
+        },
+        {
+          key: 'uptime',
+          kind: 'uptime',
+          title: 'Availability',
+          getValue: model => Number(model.uptime) || 0,
+          format: model => getAvailabilityDisplay(model),
+          isAvailable: model => !isTrackedOnlyModel(model),
+        },
+      ];
+
+      const chartGroups = chartMetrics.map(metric => `
+        <div class="compare-chart-group">
+          <div class="compare-chart-title">${escapeHtml(metric.title)}</div>
+          ${renderCompareMetricRows(comparedModels, metric)}
+        </div>
+      `).join('');
+
+      container.innerHTML = `
+        <div class="compare-panel-header">
+          <div>
+            <h3 class="compare-panel-title">${escapeHtml(options.title || 'Model Comparison')}</h3>
+            <p class="compare-panel-copy">${escapeHtml(options.copy || `Compare up to four routes side by side using ${BENCHMARK_SCORE_LABEL}, QoS, live ping, and availability. This is the fastest way to make routing decisions without opening each drawer one by one.`)}</p>
+          </div>
+          <div class="compare-panel-actions">
+            <button class="settings-provider-inline-btn" type="button" onclick="clearCompareModels()">Clear compare</button>
+          </div>
+        </div>
+        <div class="compare-panel-grid">
+          <div class="compare-card-grid">${compareCards}</div>
+          <div class="compare-chart-panel">
+            ${chartGroups}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderComparePanel() {
+      renderModelComparePanel('compare-panel', getComparedModels());
     }
 
     function drawModelsConstellation(total, online) {
@@ -527,8 +1919,8 @@ import './styles.css';
       const previousPinnedModelId = activePinnedModelId;
       const previousPinnedProviderKey = activePinnedProviderKey;
       const previousPinnedRowKeys = [...activePinnedRowKeys];
-      const previousPinningMode = pinningMode;
-      setActivePinnedModel(modelId || null, providerKey, null, pinningMode);
+      const previousPinningMode = appState.pinningMode;
+      setActivePinnedModel(modelId || null, providerKey, null, appState.pinningMode);
       render(true);
 
       try {
@@ -673,19 +2065,50 @@ import './styles.css';
       });
     }
 
+    function getVisibleTelemetryModels(models) {
+      if (appState.telemetryLaneFilter === 'frontier') {
+        return models.filter(m => m.lane === 'frontier');
+      }
+      if (appState.telemetryLaneFilter === 'general') {
+        return models.filter(m => m.lane !== 'frontier');
+      }
+      return models;
+    }
+
+    function getTelemetryEmptyStateCopy(lane, includeTracked) {
+      if (lane === 'frontier') {
+        return includeTracked
+          ? `No frontier rows are tracked yet. Configure ${escapeHtml(FRONTIER_FAMILY_NAMES.join(', '))} in Settings to add them here.`
+          : 'No active frontier telemetry rows yet. Turn on a frontier lane in Settings, or enable "Show tracked / disabled" to inspect catalog inventory here.';
+      }
+      if (lane === 'general') {
+        return includeTracked
+          ? 'No open/general rows are tracked yet. Add an open lane in Settings to seed this telemetry view.'
+          : 'No active open/general telemetry rows yet. Enable an open lane in Settings, or use "Show tracked / disabled" to inspect tracked inventory here.';
+      }
+      return includeTracked
+        ? 'No telemetry rows are tracked yet.'
+        : 'No active telemetry rows match the current lane and filter settings. You can enable "Show tracked / disabled" to inspect tracked inventory too.';
+    }
+
+    function renderSectionRow(label, detail) {
+      const tr = document.createElement('tr');
+      tr.className = 'lane-section-row';
+      tr.innerHTML = `<td colspan="7"><div class="lane-section-pill"><span>${escapeHtml(label)}</span><span>${escapeHtml(detail)}</span></div></td>`;
+      return tr;
+    }
+
     function render(isUserAction = false) {
-      if (!isUserAction && window.isTableHovered) return; // Pause updates if hovering over table
+      if (!isUserAction && window.isTableHovered) return;
       const tbody = document.getElementById('table-body');
 
-      // 1. Apply Search
       let filtered = allModels.filter(m =>
         m.label.toLowerCase().includes(searchTerm) ||
         m.providerKey.toLowerCase().includes(searchTerm) ||
         m.modelId.toLowerCase().includes(searchTerm)
       );
 
-      // 1.5. Apply Filter Rules (minSweScore, excludedProviders) - marks as excluded for display
-      const { minSweScore, excludedProviders } = filterRules;
+      const { minSweScore, excludedProviders } = appState.filterRules;
       const hasFilterRules = minSweScore != null && minSweScore > 0 || (excludedProviders && excludedProviders.length > 0);
       if (hasFilterRules) {
         filtered = filtered.map(m => {
@@ -698,9 +2121,8 @@ import './styles.css';
         });
       }
 
-      // 2. Apply Checkbox Filters
-      const getChecked = (id) => Array.from(document.querySelectorAll(`#${id} input:checked`)).map(cb => cb.value);
-      const allChecked = (id) => document.querySelectorAll(`#${id} input`).length === document.querySelectorAll(`#${id} input:checked`).length;
+      const getChecked = id => Array.from(document.querySelectorAll(`#${id} input:checked`)).map(cb => cb.value);
+      const allChecked = id => document.querySelectorAll(`#${id} input`).length === document.querySelectorAll(`#${id} input:checked`).length;
 
       const fProv = getChecked('filter-provider-group');
       const fPing = getChecked('filter-ping-group');
@@ -731,15 +2153,15 @@ import './styles.css';
         });
       }
 
+      filtered = getVisibleTelemetryModels(filtered);
+      filtered = getTelemetryDataset(filtered, appState.telemetryShowTracked === true);
+
       const liveSortOn = document.getElementById('live-sort-toggle').checked;
       let sorted;
 
-      // When the user acts OR liveSort is checked OR it's the first paint, sort properly:
       if (isUserAction || liveSortOn || currentRenderedOrder.length === 0) {
         sorted = sortedModels(filtered);
       } else {
-        // Live sort is OFF: lock elements to their previously rendered positions,
-        // but allow new data updates. New models fall to bottom.
         const orderMap = new Map(currentRenderedOrder.map((id, i) => [id, i]));
         sorted = [...filtered].sort((a, b) => {
           const idxA = orderMap.has(a.modelId) ? orderMap.get(a.modelId) : Infinity;
@@ -751,97 +2173,69 @@ import './styles.css';
         });
       }
 
-      const newOrderIds = sorted.map(m => m.modelId).join(',');
-      const oldOrderIds = currentRenderedOrder.join(',');
-      const currentRows = Array.from(tbody.rows);
+      currentRenderedOrder = sorted.map(m => m.modelId);
+      tbody.innerHTML = '';
 
-      // We only recreate DOM nodes if length changed or the exact visual order shifted
-      if (newOrderIds !== oldOrderIds || sorted.length !== currentRows.length) {
-        tbody.innerHTML = '';
-        sorted.forEach(m => tbody.appendChild(createRow(m)));
-        currentRenderedOrder = sorted.map(m => m.modelId);
+      if (sorted.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="7" class="telemetry-empty-state">${getTelemetryEmptyStateCopy(appState.telemetryLaneFilter, appState.telemetryShowTracked === true)}</td>`;
+        tbody.appendChild(tr);
         return;
       }
 
-      // Update existing rows
-      sorted.forEach((m, i) => {
-        const row = currentRows[i];
-        const hasPing = m.avg !== Infinity && m.avg !== null;
+      if (appState.telemetryLaneFilter === 'all') {
+        const generalModels = sorted.filter(m => m.lane !== 'frontier');
+        const frontierModels = sorted.filter(m => m.lane === 'frontier');
+        const frontierDetail = appState.telemetryShowTracked === true
+          ? `${frontierModels.length} tracked row${frontierModels.length !== 1 ? 's' : ''}`
+          : `${frontierModels.length} active row${frontierModels.length !== 1 ? 's' : ''}`;
+        const generalDetail = appState.telemetryShowTracked === true
+          ? `${generalModels.length} tracked row${generalModels.length !== 1 ? 's' : ''}`
+          : `${generalModels.length} active row${generalModels.length !== 1 ? 's' : ''}`;
 
-        // Update pin button state in first cell
-        const pinBtn = row.cells[0].querySelector('.pin-row-btn');
-        if (pinBtn) {
-          const isPinnedRow = activePinnedRowKeys.includes(getModelRowKey(m));
-          pinBtn.className = 'pin-row-btn' + (isPinnedRow ? ' pinned' : '');
-          pinBtn.onclick = () => pinModel(isPinnedRow ? '' : m.modelId, m.providerKey);
-          pinBtn.title = isPinnedRow ? 'Unpin model' : 'Pin model';
-        }
-
-        // Update model name cell (ban status can change)
-        const modelCell = row.cells[1];
-        const isBannedRow = m.status === 'banned';
-        const isExcludedRow = m.status === 'excluded';
-        row.style.opacity = isExcludedRow || isBannedRow ? '0.5' : '1';
-        modelCell.querySelector('div').firstChild.textContent = (isBannedRow ? '🚫 ' : (isExcludedRow ? '⛔ ' : '')) + m.label;
-        modelCell.onclick = () => openDrawer(m);
-
-        // Update QoS
-        const qosCell = row.cells[2];
-        qosCell.innerHTML = `<div style="font-weight: 700; color: ${getQosColor(m.qos)}">${getQosDisplayValue(m.qos)}</div>`;
-
-        // Update Intell
-        const intellCell = row.cells[3];
-        intellCell.innerHTML = `<div style="font-weight: 600;">${getBenchmarkTableDisplayValue(m.intell, m.isEstimatedScore)}</div>`;
-
-        // Update status dot and text
-        const statusCell = row.cells[6];
-        statusCell.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="width: 6px; height: 6px; border-radius: 50%; background: ${m.status === 'up' ? 'var(--success)' : (m.status === 'disabled' || m.status === 'banned' || m.status === 'excluded') ? 'var(--text-muted)' : 'var(--error)'}"></span>
-              <span style="font-size: 0.75rem; font-weight: 500; text-transform: capitalize;">${m.status === 'noauth' ? 'No Auth' : m.status}</span>
-            </div>
-          `;
-
-        // Update ping
-        const pingCell = row.cells[4];
-        const pingDot = pingCell.querySelector('.ping-dot');
-        const pingTextEl = pingCell.querySelector('div[style*="text-align"]') || pingCell.querySelector('div:last-child');
-        if (hasPing) {
-          if (pingDot) {
-            pingDot.className = 'ping-dot active ' + getPingAnimClass(m.avg);
-            pingDot.style.setProperty('--speed', getPingSpeed(m.avg));
-          }
-          if (pingTextEl) pingTextEl.innerHTML = `<div style="font-size:0.82rem;">${m.avg}ms</div><div style="font-size:0.7rem; color:var(--text-muted);">(${m.lastPing}ms)</div>`;
+        if (frontierModels.length > 0) {
+          tbody.appendChild(renderSectionRow('Frontier Stack', frontierDetail));
+          frontierModels.forEach(m => tbody.appendChild(createRow(m)));
         } else {
-          if (pingDot) pingDot.className = 'ping-dot';
-          if (pingTextEl) pingTextEl.innerHTML = '<span style="font-size: 0.75rem; color: var(--text-muted);">OFFLINE</span>';
+          tbody.appendChild(renderSectionRow('Frontier Stack', appState.telemetryShowTracked === true ? 'No tracked rows yet' : 'No active rows yet'));
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td colspan="7" class="telemetry-empty-state">${getTelemetryEmptyStateCopy('frontier', appState.telemetryShowTracked === true)}</td>`;
+          tbody.appendChild(tr);
         }
-
-        // Update uptime and rate icon
-        const uptimeCell = row.cells[5];
-        const uptimeContainer = uptimeCell.querySelector('div');
-        uptimeContainer.style.justifyContent = 'flex-end';
-        uptimeContainer.querySelector('.progress-fill').style.width = m.uptime + '%';
-        uptimeCell.querySelector('.progress-fill').style.background = m.uptime < 85 ? 'var(--warning)' : (m.uptime < 50 ? 'var(--error)' : 'var(--success)');
-        uptimeCell.querySelector('.uptime-text').textContent = m.uptime + '%';
-
-        const rateIcon = uptimeCell.querySelector('.rate-icon');
-        if (rateIcon) {
-          rateIcon.textContent = m.isRateLimited ? '🕑' : '✅';
-          rateIcon.title = m.isRateLimited ? 'Rate limit exceeded, waiting to reset' : 'Rate available';
-          rateIcon.style.opacity = '1';
+        if (generalModels.length > 0) {
+          tbody.appendChild(renderSectionRow('Open / General', generalDetail));
+          generalModels.forEach(m => tbody.appendChild(createRow(m)));
+        } else {
+          tbody.appendChild(renderSectionRow('Open / General', appState.telemetryShowTracked === true ? 'No tracked rows yet' : 'No active rows yet'));
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td colspan="7" class="telemetry-empty-state">${getTelemetryEmptyStateCopy('general', appState.telemetryShowTracked === true)}</td>`;
+          tbody.appendChild(tr);
         }
-      });
+        return;
+      }
+
+      if (appState.telemetryLaneFilter === 'frontier' && sorted.length === 0) {
+        tbody.appendChild(renderSectionRow('Frontier Stack', appState.telemetryShowTracked === true ? 'No tracked rows yet' : 'No active rows yet'));
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="7" class="telemetry-empty-state">${getTelemetryEmptyStateCopy('frontier', appState.telemetryShowTracked === true)}</td>`;
+        tbody.appendChild(tr);
+        return;
+      }
+
+      sorted.forEach(m => tbody.appendChild(createRow(m)));
     }
 
     function createRow(m) {
       const tr = document.createElement('tr');
+      tr.className = m.lane === 'frontier' ? 'telemetry-row frontier' : 'telemetry-row general';
+      if (isCompared(m)) tr.classList.add('is-compared');
       tr.style.opacity = m.status === 'excluded' || m.status === 'banned' ? '0.5' : '1';
       const hasPing = m.avg !== Infinity && m.avg !== null;
       const pingClass = getPingAnimClass(m.avg);
       const pingSpeed = getPingSpeed(m.avg);
 
       const isPinnedRow = activePinnedRowKeys.includes(getModelRowKey(m));
+      const isComparedRow = isCompared(m);
       tr.innerHTML = `
           <td>
             <div style="display:flex; flex-direction:column; gap:2px; align-items:center;">
@@ -849,16 +2243,24 @@ import './styles.css';
                 <svg width="12" height="12" viewBox="0 0 12 12"><path d="M6 2v8M2 6h8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
               </div>
               <div class="pin-row-btn ${isPinnedRow ? 'pinned' : ''}" onclick="pinModel('${isPinnedRow ? '' : m.modelId}', '${m.providerKey}')" title="${isPinnedRow ? 'Unpin model' : 'Pin model'}">📌</div>
+              <div class="compare-row-btn ${isComparedRow ? 'active' : ''}" onclick="toggleCompareModel('${m.modelId}', '${m.providerKey}')" title="${isComparedRow ? 'Remove from compare' : 'Compare model'}">↔</div>
             </div>
           </td>
           <td style="cursor:pointer;" onclick='openDrawer(${JSON.stringify(m).replace(/'/g, "&apos;")})'>
-            <div style="font-weight: 600;">${m.status === 'banned' ? '🚫 ' : (m.status === 'excluded' ? '⛔ ' : '')}${m.label}</div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <div style="font-weight: 600;">${m.status === 'banned' ? '🚫 ' : (m.status === 'excluded' ? '⛔ ' : '')}${m.label}</div>
+              <span class="lane-chip ${m.lane === 'frontier' ? 'frontier' : 'general'}">${m.laneLabel}</span>
+            </div>
             <div style="font-size: 0.75rem; color: var(--text-muted);">${m.providerKey}</div>
           </td>
           <td>
             <div style="font-weight: 700; color: ${getQosColor(m.qos)}">${getQosDisplayValue(m.qos)}</div>
           </td>
-          <td><div style="font-weight: 600;">${getBenchmarkTableDisplayValue(m.intell, m.isEstimatedScore)}</div></td>
+          <td>
+            <div style="font-weight: 600;">${getBenchmarkTableDisplayValue(m.intell, m.isEstimatedScore)}</div>
+            <div style="font-size:0.68rem; color:var(--text-muted); margin-top:2px;">${m.isEstimatedScore ? 'Estimated' : 'Verified ref'}</div>
+            <div style="font-size:0.68rem; color:#64748b; margin-top:2px;">${(m.benchmarkBreakdown?.length || 0) > 0 ? `${m.benchmarkBreakdown.length} public row${m.benchmarkBreakdown.length === 1 ? '' : 's'}` : 'No public rows yet'}</div>
+          </td>
           <td class="text-right">
             <div style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
               <div class="ping-dot ${hasPing ? 'active ' + pingClass : ''}" style="--speed: ${pingSpeed}"></div>
@@ -888,1554 +2290,8 @@ import './styles.css';
       return tr;
     }
 
-    function getPingAnimClass(ms) {
-      if (ms === Infinity || ms === null) return '';
-      if (ms < 400) return 'anim-fast';
-      if (ms < 1200) return 'anim-medium';
-      return 'anim-slow';
-    }
-
-    function getPingSpeed(ms) {
-      if (ms === Infinity || ms === null) return '0s';
-      if (ms < 400) return '3.5s';
-      if (ms < 1200) return '2.5s';
-      return '1.8s';
-    }
-
-    function getQosDisplayValue(qos) {
-      const n = Number(qos);
-      if (!Number.isFinite(n)) return 0;
-      return Math.round(n);
-    }
-
-    function getQosColor(qos) {
-      const n = Number(qos);
-      if (!Number.isFinite(n)) return 'var(--error)';
-      if (n >= 45) return '#16a34a';
-      if (n >= 40) return '#4ade80';
-      if (n >= 20) return 'var(--warning)';
-      return 'var(--error)';
-    }
-
-    function getBenchmarkSortValue(value) {
-      const n = Number(value);
-      if (!Number.isFinite(n) || n <= 0) return 0;
-      return n;
-    }
-
-    function getBenchmarkDisplayValue(value, isEstimated = false) {
-      const n = Number(value);
-      if (!Number.isFinite(n) || n <= 0) return '—';
-      const pill = isEstimated ? '<span class="pill-estimate">Unknown</span>' : '';
-      return `${Math.round(n * 100)}${pill}`;
-    }
-
-    function getBenchmarkTableDisplayValue(value, isEstimated = false) {
-      const n = Number(value);
-      if (!Number.isFinite(n) || n <= 0) return '—';
-      const score = Math.round(n * 100);
-      const pill = isEstimated ? '<span class="pill-estimate">Unknown</span>' : '';
-      return `${score}${pill}`;
-    }
-
-    function formatIsoDateTime(value) {
-      if (!value) return 'Never';
-      const d = new Date(value);
-      if (Number.isNaN(d.getTime())) return 'Never';
-      return d.toLocaleString();
-    }
-
-    function formatPingHover(p) {
-      const parts = [];
-      const ts = p && p.ts ? formatIsoDateTime(p.ts) : null;
-      if (p && p.code === '200' && typeof p.ms === 'number') {
-        parts.push(`${p.ms}ms`);
-      } else if (p && p.code === '000') {
-        parts.push('timeout');
-      } else if (p && p.code != null) {
-        parts.push(`HTTP ${p.code}`);
-      } else {
-        parts.push('ping');
-      }
-      if (ts && ts !== 'Never') parts.push(ts);
-      return parts.join(' • ');
-    }
-
-    function setAutoUpdateSaveStatus(message, tone = 'muted') {
-      const statusEl = document.getElementById('autoupdate-save-status');
-      if (!statusEl) return;
-      statusEl.className = `autoupdate-save-status${tone === 'success' ? ' success' : tone === 'error' ? ' error' : ''}`;
-      statusEl.textContent = message || '';
-    }
-
-    function applyAutoUpdateState(state) {
-      if (!state) return;
-      const enabled = state.enabled !== false;
-      const stateText = enabled ? 'On' : 'Off';
-
-      const stateEl = document.getElementById('autoupdate-state');
-      if (stateEl) stateEl.textContent = stateText;
-
-      const pillEl = document.getElementById('autoupdate-pill');
-      if (pillEl) {
-        pillEl.textContent = stateText;
-        pillEl.classList.remove('on', 'off');
-        pillEl.classList.add(enabled ? 'on' : 'off');
-      }
-
-      const enabledInput = document.getElementById('autoupdate-enabled');
-      if (enabledInput) enabledInput.checked = enabled;
-
-      const intervalInput = document.getElementById('autoupdate-interval');
-      if (intervalInput && Number.isFinite(Number(state.intervalHours)) && Number(state.intervalHours) > 0) {
-        intervalInput.value = String(Number(state.intervalHours));
-      }
-
-      const lastCheckEl = document.getElementById('autoupdate-last-check');
-      if (lastCheckEl) lastCheckEl.textContent = formatIsoDateTime(state.lastCheckAt);
-
-      const lastUpdateEl = document.getElementById('autoupdate-last-update');
-      if (lastUpdateEl) lastUpdateEl.textContent = formatIsoDateTime(state.lastUpdateAt);
-
-      const lastVersionEl = document.getElementById('autoupdate-last-version');
-      if (lastVersionEl) lastVersionEl.textContent = state.lastVersionApplied || 'None';
-
-      const lastErrorEl = document.getElementById('autoupdate-last-error');
-      if (lastErrorEl) {
-        const msg = state.lastError || 'None';
-        lastErrorEl.textContent = msg;
-        lastErrorEl.classList.toggle('error', !!state.lastError);
-      }
-    }
-
-    async function saveAutoUpdateSettings() {
-      const enabledEl = document.getElementById('autoupdate-enabled');
-      const intervalEl = document.getElementById('autoupdate-interval');
-      if (!enabledEl || !intervalEl) return;
-
-      const intervalHours = Number(intervalEl.value);
-      if (!Number.isFinite(intervalHours) || intervalHours <= 0) {
-        setAutoUpdateSaveStatus('Interval must be a positive number of hours.', 'error');
-        return;
-      }
-
-      setAutoUpdateSaveStatus('Saving...');
-
-      try {
-        const res = await fetch('/api/autoupdate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enabled: enabledEl.checked, intervalHours })
-        });
-
-        if (!res.ok) {
-          const payload = await res.json().catch(() => ({}));
-          throw new Error(payload.error || 'Failed to save auto-update settings.');
-        }
-
-        const payload = await res.json();
-        const state = payload.autoUpdate || null;
-        if (state) applyAutoUpdateState(state);
-        setAutoUpdateSaveStatus('Saved.', 'success');
-      } catch (err) {
-        setAutoUpdateSaveStatus(err.message || 'Failed to save auto-update settings.', 'error');
-      }
-    }
-
-    function renderAutoUpdateSettings(autoUpdate) {
-      const container = document.getElementById('autoupdate-container');
-      if (!container || !autoUpdate) return;
-
-      const enabled = autoUpdate.enabled !== false;
-      const interval = Number(autoUpdate.intervalHours) > 0 ? Number(autoUpdate.intervalHours) : 24;
-      const stateText = enabled ? 'On' : 'Off';
-
-      container.innerHTML = `
-        <div class="autoupdate-panel">
-          <div class="autoupdate-header">
-            <div>
-              <h3 class="autoupdate-title">Auto-Update</h3>
-              <div class="autoupdate-subtitle">Keep ModelFoundry fresh automatically with periodic npm checks and safe background restarts.</div>
-            </div>
-            <span id="autoupdate-pill" class="autoupdate-status-pill ${enabled ? 'on' : 'off'}">${stateText}</span>
-          </div>
-
-          <div class="autoupdate-controls">
-            <label class="autoupdate-toggle-label">
-            <input type="checkbox" id="autoupdate-enabled" ${enabled ? 'checked' : ''}>
-            Enable auto-update
-            </label>
-
-            <label class="autoupdate-interval-label">
-              Interval (hours)
-              <input id="autoupdate-interval" type="number" min="1" step="1" value="${interval}">
-            </label>
-
-            <button class="btn" onclick="saveAutoUpdateSettings()">Save Changes</button>
-            <span id="autoupdate-save-status" class="autoupdate-save-status"></span>
-          </div>
-
-          <div class="autoupdate-stats-grid">
-            <div class="autoupdate-stat">
-              <div class="autoupdate-stat-label">State</div>
-              <div id="autoupdate-state" class="autoupdate-stat-value">${stateText}</div>
-            </div>
-            <div class="autoupdate-stat">
-              <div class="autoupdate-stat-label">Last Check</div>
-              <div id="autoupdate-last-check" class="autoupdate-stat-value">${formatIsoDateTime(autoUpdate.lastCheckAt)}</div>
-            </div>
-            <div class="autoupdate-stat">
-              <div class="autoupdate-stat-label">Last Update</div>
-              <div id="autoupdate-last-update" class="autoupdate-stat-value">${formatIsoDateTime(autoUpdate.lastUpdateAt)}</div>
-            </div>
-            <div class="autoupdate-stat">
-              <div class="autoupdate-stat-label">Last Version</div>
-              <div id="autoupdate-last-version" class="autoupdate-stat-value">${autoUpdate.lastVersionApplied || 'None'}</div>
-            </div>
-            <div class="autoupdate-stat" style="grid-column:1 / -1;">
-              <div class="autoupdate-stat-label">Last Error</div>
-              <div id="autoupdate-last-error" class="autoupdate-stat-value${autoUpdate.lastError ? ' error' : ''}">${escapeHtml(autoUpdate.lastError || 'None')}</div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderPinningSettings(pinningState) {
-      const container = document.getElementById('pinning-settings-container');
-      if (!container) return;
-
-      const mode = pinningState?.pinningMode === 'exact' ? 'exact' : 'canonical';
-      pinningMode = mode;
-
-      container.innerHTML = `
-        <div class="autoupdate-panel">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
-            <div>
-              <h3 style="margin:0; font-size:1rem;">Pinned Model Scope</h3>
-              <div style="margin-top:6px; color:var(--text-muted); font-size:0.82rem;">Canonical pins route to the best matching provider for that model family. Exact pins lock to the specific provider row you clicked.</div>
-            </div>
-            <div style="display:flex; gap:10px; flex-wrap:wrap;">
-              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; background:${mode === 'canonical' ? '#eff6ff' : '#fff'}; border:1px solid ${mode === 'canonical' ? '#bfdbfe' : 'var(--border)'}; border-radius:10px; padding:10px 12px; max-width:320px;">
-                <input type="radio" name="pinning-mode" value="canonical" ${mode === 'canonical' ? 'checked' : ''} onchange="updatePinningMode('canonical')">
-                <span>
-                  <span style="display:block; font-weight:700; font-size:0.82rem;">Canonical Group</span>
-                  <span style="display:block; color:var(--text-muted); font-size:0.76rem; margin-top:3px;">Default. Pin the same model across providers and route to the best available match.</span>
-                </span>
-              </label>
-              <label style="display:flex; align-items:flex-start; gap:8px; cursor:pointer; background:${mode === 'exact' ? '#eff6ff' : '#fff'}; border:1px solid ${mode === 'exact' ? '#bfdbfe' : 'var(--border)'}; border-radius:10px; padding:10px 12px; max-width:320px;">
-                <input type="radio" name="pinning-mode" value="exact" ${mode === 'exact' ? 'checked' : ''} onchange="updatePinningMode('exact')">
-                <span>
-                  <span style="display:block; font-weight:700; font-size:0.82rem;">Exact Provider Row</span>
-                  <span style="display:block; color:var(--text-muted); font-size:0.76rem; margin-top:3px;">Pin only the exact provider/model row you clicked.</span>
-                </span>
-              </label>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    async function updatePinningMode(mode) {
-      const nextMode = mode === 'exact' ? 'exact' : 'canonical';
-      await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pinningMode: nextMode })
-      });
-      pinningMode = nextMode;
-      await loadSettings();
-      await fetchData();
-    }
-
-    function renderFilterRules(filterRulesFromServer, providers) {
-      const container = document.getElementById('filter-rules-container');
-      if (!container || !filterRulesFromServer) return;
-
-      // Store globally for immediate table filtering
-      filterRules = {
-        minSweScore: filterRulesFromServer.minSweScore,
-        excludedProviders: filterRulesFromServer.excludedProviders || []
-      };
-
-      const minSweScore = filterRules.minSweScore;
-      const excludedProviders = filterRules.excludedProviders || [];
-
-      const providerCheckboxes = providers.map(p => `
-        <label style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 8px; cursor: pointer; font-size: 0.875rem;">
-          <input type="checkbox" class="excluded-provider-checkbox" value="${escapeHtml(p.key)}" ${excludedProviders.includes(p.key) ? 'checked' : ''}>
-          ${escapeHtml(p.name)}
-        </label>
-      `).join('');
-
-      container.innerHTML = `
-        <div class="autoupdate-panel">
-          <div style="display: flex; flex-direction: column; gap: 20px;">
-            <div>
-              <label style="display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.875rem;">
-                Minimum SWE Score
-              </label>
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <input type="number" id="min-swe-score" min="0" max="100" step="1" value="${minSweScore !== null ? Math.round(minSweScore * 100) : ''}" placeholder="e.g. 50" style="width: 80px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.875rem;">
-                <span style="color: var(--text-muted); font-size: 0.875rem;">%</span>
-              </div>
-              <p style="color: var(--text-muted); font-size: 0.78rem; margin-top: 6px;">Models with SWE% below this threshold will be excluded from pinging and routing.</p>
-            </div>
-
-            <div>
-              <label style="display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.875rem;">
-                Excluded Providers
-              </label>
-              <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                ${providerCheckboxes}
-              </div>
-              <p style="color: var(--text-muted); font-size: 0.78rem; margin-top: 6px;">All models from these providers will be excluded from pinging and routing.</p>
-            </div>
-
-            <div>
-              <button class="btn" onclick="saveFilterRules()">Save Filter Rules</button>
-              <span id="filter-rules-save-status" class="autoupdate-save-status"></span>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderProviderFilterGroup(providerConfigs) {
-      const providerGroup = document.getElementById('filter-provider-group');
-      if (!providerGroup) return;
-
-      const selected = new Set(Array.from(providerGroup.querySelectorAll('input:checked')).map(cb => cb.value));
-      const enabledProviders = (providerConfigs || []).filter(p => p.enabled);
-
-      providerGroup.innerHTML = enabledProviders
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .map(p => `<label class="cb-label"><input type="checkbox" value="${escapeHtml(p.key)}" checked onchange="render(true)"> ${escapeHtml(p.name)}</label>`)
-        .join('');
-
-      providerGroup.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-        cb.checked = selected.size === 0 || selected.has(cb.value);
-      });
-    }
-
-    async function saveFilterRules() {
-      const minSweInput = document.getElementById('min-swe-score');
-      const minSweValue = minSweInput.value.trim();
-      let minSweScore = null;
-      if (minSweValue !== '') {
-        const parsed = parseInt(minSweValue, 10);
-        if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 100) {
-          minSweScore = parsed / 100;
-        }
-      }
-
-      const checkboxes = document.querySelectorAll('.excluded-provider-checkbox:checked');
-      const excludedProviders = Array.from(checkboxes).map(cb => cb.value);
-
-      try {
-        const res = await fetch('/api/filter-rules', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ minSweScore, excludedProviders })
-        });
-        if (!res.ok) throw new Error('Failed to save filter rules');
-        const data = await res.json();
-        document.getElementById('filter-rules-save-status').textContent = 'Saved!';
-        setTimeout(() => {
-          document.getElementById('filter-rules-save-status').textContent = '';
-        }, 2000);
-        fetchData();
-      } catch (err) {
-        document.getElementById('filter-rules-save-status').textContent = err.message || 'Failed to save.';
-        document.getElementById('filter-rules-save-status').style.color = 'var(--error)';
-      }
-    }
-
-    function setConfigTransferStatus(message, tone = '') {
-      const statusEl = document.getElementById('config-transfer-status');
-      if (!statusEl) return;
-      statusEl.textContent = message || '';
-      statusEl.className = `autoupdate-save-status${tone === 'success' ? ' success' : tone === 'error' ? ' error' : ''}`;
-    }
-
-    async function exportConfigTokenToBox() {
-      try {
-        const res = await fetch('/api/config/export');
-        const payload = await res.json();
-        if (!res.ok || !payload?.payload) {
-          throw new Error(payload?.error || 'Failed to export settings.');
-        }
-        const box = document.getElementById('config-transfer-payload');
-        if (box) box.value = payload.payload;
-        setConfigTransferStatus('Config token exported.', 'success');
-      } catch (err) {
-        setConfigTransferStatus(err.message || 'Failed to export settings.', 'error');
-      }
-    }
-
-    async function copyConfigTokenFromBox() {
-      const box = document.getElementById('config-transfer-payload');
-      const value = (box?.value || '').trim();
-      if (!value) {
-        setConfigTransferStatus('Nothing to copy. Export first or paste a token.', 'error');
-        return;
-      }
-
-      try {
-        await navigator.clipboard.writeText(value);
-        setConfigTransferStatus('Copied token to clipboard.', 'success');
-      } catch {
-        setConfigTransferStatus('Clipboard copy failed. Please copy manually.', 'error');
-      }
-    }
-
-    async function importConfigTokenFromBox() {
-      const box = document.getElementById('config-transfer-payload');
-      const payload = (box?.value || '').trim();
-      if (!payload) {
-        setConfigTransferStatus('Paste a config token before importing.', 'error');
-        return;
-      }
-
-      if (!confirm('Importing will overwrite your current settings (including API keys). Continue?')) {
-        return;
-      }
-
-      try {
-        const res = await fetch('/api/config/import', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ payload })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Failed to import settings.');
-        }
-        setConfigTransferStatus('Config imported successfully.', 'success');
-        await loadSettings();
-        await fetchData();
-      } catch (err) {
-        setConfigTransferStatus(err.message || 'Failed to import settings.', 'error');
-      }
-    }
-
-    async function loadSettings() {
-      try {
-        const [providersRes, autoUpdateRes, filterRulesRes, pinningRes] = await Promise.all([
-          fetch('/api/config'),
-          fetch('/api/autoupdate'),
-          fetch('/api/filter-rules'),
-          fetch('/api/pinning'),
-        ]);
-        const providers = await providersRes.json();
-        const autoUpdate = await autoUpdateRes.json();
-        const filterRules = await filterRulesRes.json();
-        const pinning = await pinningRes.json();
-        renderAutoUpdateSettings(autoUpdate);
-        renderPinningSettings(pinning);
-        renderFilterRules(filterRules, providers);
-        renderProviderFilterGroup(providers);
-        const container = document.getElementById('providers-container');
-        container.innerHTML = '';
-
-        providers.sort((a, b) => {
-          if (a.hasKey && !b.hasKey) return -1;
-          if (!a.hasKey && b.hasKey) return 1;
-          return a.name.localeCompare(b.name);
-        }).forEach(p => {
-          const now = Date.now();
-          const providerModels = allModels ? allModels.filter(m => m.providerKey === p.key) : [];
-          // Count models for this provider from allModels
-          const modelCount = providerModels.length;
-          // Get rate limit info from a model with this provider that has rateLimit data
-          const rlModel = providerModels.find(m => m.rateLimit) || null;
-          const rl = rlModel?.rateLimit;
-          const errorModel = providerModels
-            .filter(m => {
-              if (!m.lastError || m.status === 'up') return false;
-              const updatedAtMs = Date.parse(m.lastError.updatedAt || '');
-              return !Number.isNaN(updatedAtMs) && (now - updatedAtMs) <= PROVIDER_ERROR_MAX_AGE_MS;
-            })
-            .sort((a, b) => {
-              const aTs = Date.parse(a.lastError.updatedAt || '');
-              const bTs = Date.parse(b.lastError.updatedAt || '');
-              if (Number.isNaN(aTs) && Number.isNaN(bTs)) return 0;
-              if (Number.isNaN(aTs)) return 1;
-              if (Number.isNaN(bTs)) return -1;
-              return bTs - aTs;
-            })[0] || null;
-          const providerError = errorModel ? errorModel.lastError : null;
-
-          const tokenOptional = p.supportsOptionalBearerAuth === true;
-          const statusIcon = p.hasKey ? '✅' : (tokenOptional ? 'ℹ️' : '⚠️');
-          const statusColor = p.hasKey ? '#065f46' : (tokenOptional ? '#1e40af' : '#92400e');
-          const statusBg = p.hasKey ? '#ecfdf5' : (tokenOptional ? '#eff6ff' : '#fffbeb');
-          const statusText = p.hasKey
-            ? (tokenOptional ? 'API Key configured' : 'Key configured')
-            : (tokenOptional ? 'API Key optional' : 'No API key');
-
-          let rateLimitHtml = '';
-          if (rl) {
-            const fmtNum = n => n >= 1000 ? (n / 1000).toFixed(0) + 'k' : String(n);
-            const fmtTime = ts => {
-              if (!ts) return null;
-              const d = new Date(ts);
-              return Number.isNaN(d.getTime()) ? null : d.toLocaleString();
-            };
-            const creditLine = rl.creditLimit != null
-              ? `<span>Credits: <b>${fmtNum(rl.creditRemaining ?? '?')}</b> / ${fmtNum(rl.creditLimit)} remaining</span>`
-              : '';
-            const creditResetLine = rl.creditResetAt ? `<span>Credit reset: <b>${fmtTime(rl.creditResetAt) ?? 'unknown'}</b></span>` : '';
-            rateLimitHtml = `
-              <div style="margin-top:12px; padding:10px 12px; background:#f8fafc; border:1px solid var(--border); border-radius:8px; font-size:0.78rem;">
-                <div style="font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; font-size:0.7rem;">Rate Limits (last prompt)</div>
-                <div style="display:flex; gap:16px; flex-wrap:wrap;">
-                  ${rl.limitRequests != null ? `<span>Requests: <b>${fmtNum(rl.remainingRequests ?? '?')}</b> / ${fmtNum(rl.limitRequests)} remaining</span>` : ''}
-                  ${rl.limitTokens != null ? `<span>Tokens: <b>${fmtNum(rl.remainingTokens ?? '?')}</b> / ${fmtNum(rl.limitTokens)} remaining</span>` : ''}
-                  ${creditLine}
-                  ${creditResetLine}
-                </div>
-              </div>`;
-          }
-
-          let providerErrorHtml = '';
-          if (providerError && providerError.message) {
-            const errorUpdated = providerError.updatedAt ? new Date(providerError.updatedAt) : null;
-            const errorWhen = errorUpdated && !Number.isNaN(errorUpdated.getTime())
-              ? errorUpdated.toLocaleString()
-              : 'unknown time';
-            providerErrorHtml = `
-              <div style="margin-top:12px; padding:10px 12px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; font-size:0.78rem; color:#7f1d1d;">
-                <div style="font-weight:600; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; font-size:0.7rem; color:#991b1b;">Latest Provider Error</div>
-                <div style="word-break:break-word;"><b>${escapeHtml(errorModel.modelId)}</b>: ${escapeHtml(providerError.message)}</div>
-                <div style="margin-top:6px; color:#b91c1c;">HTTP ${escapeHtml(providerError.code || '?')} • ${escapeHtml(errorWhen)}</div>
-              </div>`;
-          }
-
-          const openAiCompatibleFieldsHtml = p.key === 'openai-compatible' ? `
-            <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-              <input type="text" id="base-url-${p.key}" value="${escapeHtml(p.baseUrl || '')}" placeholder="https://your-endpoint.example/v1" style="flex:1;" onblur="updateProviderBaseUrl('${p.key}')">
-            </div>
-            <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-              <input type="text" id="model-id-${p.key}" value="${escapeHtml(p.modelId || '')}" placeholder="upstream-model-id" style="flex:1;" onblur="updateProviderModelId('${p.key}')">
-            </div>
-            <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">Set the upstream base URL and exact model ID for this provider.</div>
-          ` : '';
-
-          const qwenAuthActionsHtml = p.key === 'qwencode' ? `
-            <div style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <button onclick="startQwenOAuthLogin()" style="border:1px solid var(--border); background:#fff; cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Login with Qwen Code</button>
-              <span id="qwencode-login-status" style="font-size:0.75rem; color:var(--text-muted);"></span>
-            </div>
-          ` : '';
-
-          const optionalBearerAuthHtml = (tokenOptional && p.hasKey) ? `
-            <div style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; cursor:pointer;">
-                <input type="checkbox" id="bearer-auth-${p.key}" ${p.useBearerAuth !== false ? 'checked' : ''} onchange="updateProviderBearerAuth('${p.key}')">
-                Attach API Key as Bearer
-              </label>
-            </div>
-          ` : '';
-
-          const section = document.createElement('div');
-          section.className = 'provider-section';
-          section.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem;">
-              <div style="display:flex; align-items:center; gap:10px;">
-                <span style="background:${statusBg}; color:${statusColor}; border-radius:999px; padding:2px 10px; font-size:0.75rem; font-weight:600;">${statusIcon} ${statusText}</span>
-                <h3 style="margin:0; font-size:1rem;">${p.name}</h3>
-                ${modelCount > 0 ? `<span style="background:#f3f2f1; color:var(--text-muted); border-radius:999px; padding:2px 8px; font-size:0.72rem; font-weight:600;">${modelCount} model${modelCount !== 1 ? 's' : ''}</span>` : ''}
-                ${p.signupUrl ? `<a href="${p.signupUrl}" target="_blank" rel="noopener noreferrer" style="font-size:0.78rem; color:var(--accent); text-decoration:none; font-weight:600;">Get API key</a>` : ''}
-              </div>
-              <div style="display:flex; align-items:center; gap:10px;">
-                <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; cursor:pointer;">
-                  <input type="checkbox" id="enable-${p.key}" ${p.enabled ? 'checked' : ''} onchange="updateProvider('${p.key}')">
-                  Enabled
-                </label>
-              </div>
-            </div>
-            <div class="form-group" style="display:flex; gap:8px; align-items:center;">
-              <input type="password" id="key-${p.key}" placeholder="${p.hasKey ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022 (' + (tokenOptional ? 'API Key Configured' : 'Key Configured') + ')' : (tokenOptional ? 'Enter API Key (optional)...' : 'Enter API Key...')}" style="flex:1;" onblur="updateProviderKey('${p.key}')">
-              <button onclick="const i=document.getElementById('key-${p.key}'); i.type=i.type==='password'?'text':'password'; this.textContent=i.type==='password'?'👁':'🙈';" style="border:1px solid var(--border); background:white; cursor:pointer; padding:8px 10px; border-radius:6px; font-size:0.85rem; white-space:nowrap;">👁</button>
-              ${p.hasKey ? `<button onclick="deleteProviderKey('${p.key}')" style="border:1px solid #fecaca; background:#fff1f2; color:#b91c1c; cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; white-space:nowrap;">Delete Key</button>` : ''}
-            </div>
-            <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
-              <span style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap;">Ping interval (min):</span>
-              <input type="number" id="ping-interval-${p.key}" min="1" step="1" value="${p.pingIntervalMinutes || ''}" placeholder="30" style="width:70px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:0.8rem;" onchange="updateProviderPingInterval('${p.key}')">
-              <span style="font-size:0.75rem; color:var(--text-muted);">(default: 30)</span>
-            </div>
-            ${optionalBearerAuthHtml}
-            ${openAiCompatibleFieldsHtml}
-            ${qwenAuthActionsHtml}
-            ${providerErrorHtml}
-            ${rateLimitHtml}
-          `;
-          container.appendChild(section);
-        });
-      } catch (err) { console.error(err); }
-    }
-
-    async function updateProvider(key) {
-      const enabled = document.getElementById(`enable-${key}`).checked;
-      await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerKey: key, enabled })
-      });
-    }
-
-    async function updateProviderKey(key) {
-      const input = document.getElementById(`key-${key}`);
-      const val = input.value.trim();
-      if (!val) return;
-      await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerKey: key, apiKey: val })
-      });
-      input.value = '';
-      loadSettings();
-    }
-
-    async function deleteProviderKey(key) {
-      const input = document.getElementById(`key-${key}`);
-      await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerKey: key, apiKey: null })
-      });
-      if (input) input.value = '';
-      await loadSettings();
-      await fetchData();
-    }
-
-    async function updateProviderBaseUrl(key) {
-      const input = document.getElementById(`base-url-${key}`);
-      const baseUrl = input ? input.value.trim() : '';
-      await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerKey: key, baseUrl })
-      });
-      await fetchData();
-    }
-
-    async function updateProviderModelId(key) {
-      const input = document.getElementById(`model-id-${key}`);
-      const modelId = input ? input.value.trim() : '';
-      await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerKey: key, modelId })
-      });
-      await fetchData();
-    }
-
-    async function updateProviderPingInterval(key) {
-      const input = document.getElementById(`ping-interval-${key}`);
-      const val = input.value.trim();
-      let pingIntervalMinutes = null;
-      if (val !== '') {
-        const parsed = parseInt(val, 10);
-        if (!Number.isNaN(parsed) && parsed >= 1) {
-          pingIntervalMinutes = parsed;
-        }
-      }
-      await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerKey: key, pingIntervalMinutes })
-      });
-    }
-
-    async function updateProviderBearerAuth(key) {
-      const input = document.getElementById(`bearer-auth-${key}`);
-      if (!input) return;
-      const useBearerAuth = input.checked;
-      await fetch('/api/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerKey: key, useBearerAuth })
-      });
-    }
-
-    function setQwenLoginStatus(message, isError = false) {
-      const statusEl = document.getElementById('qwencode-login-status');
-      if (!statusEl) return;
-      statusEl.style.color = isError ? 'var(--error)' : 'var(--text-muted)';
-      statusEl.textContent = message || '';
-    }
-
-    async function pollQwenOAuthLoginStatus() {
-      if (!qwenOauthSessionId) return;
-      try {
-        const res = await fetch(`/api/qwencode/login/status?sessionId=${encodeURIComponent(qwenOauthSessionId)}`);
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || 'Failed to fetch Qwen OAuth login status.');
-        }
-
-        const data = await res.json();
-        if (data.status === 'authorized') {
-          setQwenLoginStatus('Qwen OAuth connected.');
-          if (qwenOauthPollTimer) {
-            clearInterval(qwenOauthPollTimer);
-            qwenOauthPollTimer = null;
-          }
-          qwenOauthSessionId = null;
-          loadSettings();
-          fetchData();
-          return;
-        }
-
-        if (data.status === 'error') {
-          setQwenLoginStatus(data.error || 'Qwen OAuth login failed.', true);
-          if (qwenOauthPollTimer) {
-            clearInterval(qwenOauthPollTimer);
-            qwenOauthPollTimer = null;
-          }
-          qwenOauthSessionId = null;
-          return;
-        }
-
-        if (data.status === 'expired') {
-          setQwenLoginStatus('Qwen login session expired. Click Login again.', true);
-          if (qwenOauthPollTimer) {
-            clearInterval(qwenOauthPollTimer);
-            qwenOauthPollTimer = null;
-          }
-          qwenOauthSessionId = null;
-          return;
-        }
-
-        setQwenLoginStatus('Waiting for Qwen authorization...');
-      } catch (err) {
-        setQwenLoginStatus(err.message || 'Failed to poll Qwen OAuth status.', true);
-      }
-    }
-
-    async function startQwenOAuthLogin() {
-      try {
-        setQwenLoginStatus('Starting Qwen OAuth login...');
-        const res = await fetch('/api/qwencode/login/start', { method: 'POST' });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || 'Failed to start Qwen OAuth login.');
-        }
-
-        qwenOauthSessionId = data.sessionId;
-        if (data.verificationUriComplete) {
-          window.open(data.verificationUriComplete, '_blank', 'noopener,noreferrer');
-        }
-
-        const codeSuffix = data.userCode ? ` (code: ${data.userCode})` : '';
-        setQwenLoginStatus(`Complete login in browser${codeSuffix}`);
-
-        if (qwenOauthPollTimer) clearInterval(qwenOauthPollTimer);
-        const pollMs = Number(data.pollIntervalMs) > 0 ? Number(data.pollIntervalMs) : 2000;
-        qwenOauthPollTimer = setInterval(pollQwenOAuthLoginStatus, pollMs);
-        pollQwenOAuthLoginStatus();
-      } catch (err) {
-        setQwenLoginStatus(err.message || 'Failed to start Qwen OAuth login.', true);
-      }
-    }
-
-    function loadChatState() {
-      try {
-        const rawMessages = sessionStorage.getItem(CHAT_STORAGE_KEY);
-        const parsedMessages = rawMessages ? JSON.parse(rawMessages) : [];
-        chatMessages = Array.isArray(parsedMessages)
-          ? parsedMessages
-            .filter(m => m && typeof m.role === 'string' && m.content != null)
-            .map(m => ({
-              role: String(m.role),
-              content: typeof m.content === 'string' ? m.content : formatMessageContent(m.content),
-              ts: typeof m.ts === 'string' ? m.ts : new Date().toISOString(),
-              model: typeof m.model === 'string' && m.model.trim() ? m.model.trim() : null
-            }))
-          : [];
-
-        const rawModel = sessionStorage.getItem(CHAT_MODEL_STORAGE_KEY);
-        chatSelectedModel = rawModel && typeof rawModel === 'string' ? rawModel : 'auto-fastest';
-      } catch {
-        chatMessages = [];
-        chatSelectedModel = 'auto-fastest';
-      }
-    }
-
-    function saveChatState() {
-      try {
-        sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatMessages));
-        sessionStorage.setItem(CHAT_MODEL_STORAGE_KEY, chatSelectedModel || 'auto-fastest');
-      } catch {
-        // Ignore storage failures and keep chat in-memory.
-      }
-    }
-
-    function updateChatModelOptions(models = []) {
-      const select = document.getElementById('chat-model-select');
-      if (!select) return;
-
-      const previousSelection = chatSelectedModel || select.value || 'auto-fastest';
-      const options = [
-        { value: 'auto-fastest', label: 'Auto (Fastest Available)' },
-        ...models
-          .filter(m => m && m.modelId)
-          .sort((a, b) => (a.label || a.modelId).localeCompare(b.label || b.modelId))
-          .map(m => ({
-            value: m.modelId,
-            label: `${m.label || m.modelId} · ${m.providerKey}`
-          }))
-      ];
-
-      const deduped = [];
-      const seen = new Set();
-      for (const opt of options) {
-        if (seen.has(opt.value)) continue;
-        seen.add(opt.value);
-        deduped.push(opt);
-      }
-
-      select.innerHTML = deduped
-        .map(opt => `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`)
-        .join('');
-
-      const hasPrevious = deduped.some(opt => opt.value === previousSelection);
-      chatSelectedModel = hasPrevious ? previousSelection : 'auto-fastest';
-      select.value = chatSelectedModel;
-      saveChatState();
-    }
-
-    function onChatModelChange() {
-      const select = document.getElementById('chat-model-select');
-      chatSelectedModel = (select && select.value) ? select.value : 'auto-fastest';
-      saveChatState();
-      setChatStatus(`Using model: ${chatSelectedModel}`, 'muted');
-    }
-
-    function setChatStatus(message, tone = 'muted') {
-      const statusEl = document.getElementById('chat-status');
-      if (!statusEl) return;
-      statusEl.className = `chat-status${tone === 'error' ? ' error' : tone === 'success' ? ' success' : ''}`;
-      statusEl.textContent = message || '';
-    }
-
-    function scrollChatToBottom() {
-      const transcript = document.getElementById('chat-transcript');
-      if (!transcript) return;
-      transcript.scrollTop = transcript.scrollHeight;
-    }
-
-    function renderChatTranscript() {
-      const transcript = document.getElementById('chat-transcript');
-      if (!transcript) return;
-
-      if (!chatMessages.length) {
-        transcript.innerHTML = `
-          <div class="chat-empty">
-            Start a conversation. Press Enter to send and Shift+Enter for a newline.
-          </div>
-        `;
-        return;
-      }
-
-      transcript.innerHTML = chatMessages.map(msg => {
-        const role = msg && msg.role ? String(msg.role) : 'assistant';
-        const roleClass = role === 'user' ? 'user' : role === 'system' ? 'system' : 'assistant';
-        const content = escapeHtml(formatMessageContent(msg && msg.content != null ? msg.content : ''));
-        const ts = msg && msg.ts ? new Date(msg.ts) : null;
-        const tsLabel = ts && !Number.isNaN(ts.getTime())
-          ? ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : '';
-        const modelLabel = msg && typeof msg.model === 'string' && msg.model.trim() ? msg.model.trim() : '';
-        const headerBits = [role];
-        if (tsLabel) headerBits.push(tsLabel);
-        if (role === 'assistant' && modelLabel) headerBits.push(modelLabel);
-
-        return `
-          <div class="chat-msg ${roleClass}">
-            <div class="chat-msg-role">${headerBits.map(part => escapeHtml(part)).join(' • ')}</div>
-            <div class="chat-msg-content">${content}</div>
-          </div>
-        `;
-      }).join('');
-
-      scrollChatToBottom();
-    }
-
-    function setChatInFlight(inFlight) {
-      chatInFlight = !!inFlight;
-
-      const sendBtn = document.getElementById('chat-send-btn');
-      const clearBtn = document.getElementById('chat-clear-btn');
-      const input = document.getElementById('chat-input');
-      const modelSelect = document.getElementById('chat-model-select');
-      const typing = document.getElementById('chat-typing-indicator');
-
-      if (sendBtn) {
-        sendBtn.disabled = chatInFlight;
-        sendBtn.textContent = chatInFlight ? 'Sending...' : 'Send';
-      }
-      if (clearBtn) clearBtn.disabled = chatInFlight;
-      if (input) input.disabled = chatInFlight;
-      if (modelSelect) modelSelect.disabled = chatInFlight;
-      if (typing) typing.style.display = chatInFlight ? 'flex' : 'none';
-    }
-
-    function handleChatInputKeydown(event) {
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendChatMessage();
-      }
-    }
-
-    function clearChat() {
-      if (chatInFlight) return;
-      chatMessages = [];
-      saveChatState();
-      setChatStatus('Chat cleared. Starting fresh.', 'success');
-      renderChatTranscript();
-      const input = document.getElementById('chat-input');
-      if (input) input.focus();
-    }
-
-    function buildChatRequestMessages() {
-      return chatMessages
-        .filter(m => m && typeof m.role === 'string' && m.content != null)
-        .map(m => ({
-          role: String(m.role),
-          content: typeof m.content === 'string' ? m.content : formatMessageContent(m.content)
-        }));
-    }
-
-    function getAssistantTextFromResponse(data) {
-      const choice = data && Array.isArray(data.choices) ? data.choices[0] : null;
-      const message = choice && choice.message ? choice.message : null;
-      if (!message) return '';
-
-      if (typeof message.content === 'string' && message.content.trim() !== '') {
-        return message.content;
-      }
-
-      if (Array.isArray(message.content)) {
-        const joined = message.content.map(part => {
-          if (typeof part === 'string') return part;
-          if (part && part.type === 'text' && typeof part.text === 'string') return part.text;
-          return '';
-        }).filter(Boolean).join('\n');
-        if (joined.trim() !== '') return joined;
-      }
-
-      if (message.tool_calls) {
-        return JSON.stringify(message.tool_calls, null, 2);
-      }
-      if (message.function_call) {
-        return JSON.stringify(message.function_call, null, 2);
-      }
-
-      return '';
-    }
-
-    async function sendChatMessage() {
-      if (chatInFlight) return;
-      const input = document.getElementById('chat-input');
-      if (!input) return;
-
-      const content = input.value.replace(/\r\n/g, '\n').trim();
-      if (!content) {
-        setChatStatus('Type a message before sending.', 'error');
-        return;
-      }
-
-      const userMessage = { role: 'user', content, ts: new Date().toISOString() };
-      chatMessages.push(userMessage);
-      saveChatState();
-      renderChatTranscript();
-      input.value = '';
-      setChatStatus('');
-      setChatInFlight(true);
-
-      try {
-        const requestBody = {
-          model: chatSelectedModel || 'auto-fastest',
-          messages: buildChatRequestMessages()
-        };
-
-        const res = await fetch('/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          const errorMessage = data?.error?.message || data?.error || data?.message || `Chat request failed (${res.status}).`;
-          throw new Error(errorMessage);
-        }
-
-        const assistantText = getAssistantTextFromResponse(data);
-        if (!assistantText) {
-          throw new Error('The provider returned an empty assistant response.');
-        }
-
-        const responseModel = typeof data?.model === 'string' && data.model.trim() ? data.model.trim() : null;
-        chatMessages.push({ role: 'assistant', content: assistantText, ts: new Date().toISOString(), model: responseModel });
-        saveChatState();
-        renderChatTranscript();
-        setChatStatus('Response received.', 'success');
-      } catch (err) {
-        setChatStatus(err?.message || 'Failed to send message.', 'error');
-      } finally {
-        setChatInFlight(false);
-        if (input) input.focus();
-      }
-    }
-
-    function initializeChat() {
-      loadChatState();
-      updateChatModelOptions(allModels);
-      renderChatTranscript();
-      setChatInFlight(false);
-      setChatStatus('');
-    }
-
-    function updateLogsPauseButton() {
-      const pauseBtn = document.getElementById('logs-pause-toggle');
-      if (!pauseBtn) return;
-      pauseBtn.textContent = logsAutoRefreshPaused ? 'Resume Live Updates' : 'Pause Live Updates';
-      pauseBtn.setAttribute('aria-pressed', logsAutoRefreshPaused ? 'true' : 'false');
-    }
-
-    function toggleLogsAutoRefresh() {
-      logsAutoRefreshPaused = !logsAutoRefreshPaused;
-      updateLogsPauseButton();
-      if (!logsAutoRefreshPaused) {
-        loadLogs(true);
-      }
-    }
-
-    async function loadLogs(force = false) {
-      if (!force && logsAutoRefreshPaused) return;
-      try {
-        const res = await fetch('/api/logs');
-        const logs = await res.json();
-        const container = document.getElementById('logs-container');
-
-        if (logs.length === 0) {
-          container.innerHTML = '<div style="padding: 32px; text-align: center; color: var(--text-muted); background: var(--card); border: 1px solid var(--border); border-radius: 12px;">No requests have been routed yet.</div>';
-          return;
-        }
-
-        if (logsViewMode === 'history') {
-          renderMessageHistory(logs, container);
-          return;
-        }
-
-        const expandedCards = new Set();
-        document.querySelectorAll('.log-card.expanded').forEach(card => {
-          expandedCards.add(card.id);
-        });
-
-        container.innerHTML = logs.map(l => {
-          const date = new Date(l.timestamp);
-          const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          const attempts = Array.isArray(l.attempts) ? l.attempts : [];
-          const retryCount = typeof l.retryCount === 'number'
-            ? l.retryCount
-            : Math.max(0, attempts.length - 1);
-          const hadFailover = retryCount > 0;
-          let statusBadge = '';
-          if (l.status === '200') statusBadge = '<span style="background: #ecfdf5; color: #065f46; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">200 OK</span>';
-          else if (l.status === 'pending') statusBadge = '<span style="background: #eff6ff; color: #1e40af; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">Pending...</span>';
-          else statusBadge = `<span style="background: #fef2f2; color: #991b1b; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600;">${l.status}</span>`;
-          const resolvedModelChip = l.resolvedModel
-            ? `<span style="background:#eef2ff; color:#3730a3; padding:2px 8px; border-radius:999px; font-size:0.7rem; font-weight:700;">resolved: ${escapeHtml(l.resolvedModel)}</span>`
-            : '';
-
-          let messagesArray = Array.isArray(l.messages) ? l.messages : (typeof l.messages === 'string' ? [{ role: 'raw', content: l.messages }] : []);
-          const msgHtml = messagesArray.map(m => {
-            const isSystem = m.role === 'system';
-            const isUser = m.role === 'user';
-            const colorVar = isSystem ? 'var(--warning)' : (isUser ? 'var(--success)' : 'var(--accent)');
-            let formattedContent = typeof m.content === 'string' ? m.content : JSON.stringify(m.content, null, 2);
-            // Replace brackets with HTML entities to prevent rendering issues
-            formattedContent = (formattedContent || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-            return `
-              <div style="margin-top: 12px; border-left: 3px solid ${colorVar}; padding-left: 12px;">
-                <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: ${colorVar}; margin-bottom: 4px;">${m.role}</div>
-                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 200px; overflow-y: auto; background: #faf9f8; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${formattedContent}</div>
-              </div>
-            `;
-          }).join('');
-
-          let responseHtml = '';
-          if (l.response) {
-            let formattedResp = l.response.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            responseHtml = `
-              <div style="margin-top: 12px; border-left: 3px solid var(--accent); padding-left: 12px;">
-                <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 4px;">ASSISTANT</div>
-                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 300px; overflow-y: auto; background: #faf9f8; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${formattedResp}</div>
-              </div>
-            `;
-          }
-
-          let toolCallsHtml = '';
-          if (l.tool_calls && l.tool_calls.length > 0) {
-            const numTools = l.tool_calls.length;
-            const tcStr = JSON.stringify(l.tool_calls, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            toolCallsHtml = `
-              <div style="margin-top: 12px; border-left: 3px solid var(--accent); padding-left: 12px;">
-                <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 4px;">TOOL CALLS (${numTools})</div>
-                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 200px; overflow-y: auto; background: #faf9f8; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${tcStr}</div>
-              </div>
-            `;
-          }
-
-          let functionCallHtml = '';
-          if (l.function_call) {
-            const fcStr = JSON.stringify(l.function_call, null, 2).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            functionCallHtml = `
-              <div style="margin-top: 12px; border-left: 3px solid var(--accent); padding-left: 12px;">
-                <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 4px;">FUNCTION CALL</div>
-                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); max-height: 200px; overflow-y: auto; background: #faf9f8; padding: 8px; border-radius: 6px; border: 1px solid var(--border);">${fcStr}</div>
-              </div>
-            `;
-          }
-
-          let errorHtml = '';
-          if (l.error) {
-            let formattedErr = typeof l.error === 'string' ? l.error : JSON.stringify(l.error, null, 2);
-            formattedErr = formattedErr.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            errorHtml = `
-              <div style="margin-top: 12px; border-left: 3px solid var(--error); padding-left: 12px;">
-                <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--error); margin-bottom: 4px;">PROXY ERROR</div>
-                <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: #7f1d1d; max-height: 200px; overflow-y: auto; background: #fef2f2; padding: 8px; border-radius: 6px; border: 1px solid #fecaca;">${formattedErr}</div>
-              </div>
-            `;
-          }
-
-          let failoverHtml = '';
-          if (attempts.length > 0) {
-            const attemptRows = attempts.map((a, idx) => {
-              const code = a && a.status ? String(a.status) : 'unknown';
-              const isOk = code === '200';
-              const isRetryable = !!(a && a.retryable);
-              const chipBg = isOk ? '#ecfdf5' : (isRetryable ? '#fffbeb' : '#fef2f2');
-              const chipFg = isOk ? '#065f46' : (isRetryable ? '#92400e' : '#991b1b');
-              const model = a && a.model ? a.model : '(unknown model)';
-              const provider = a && a.provider ? a.provider : '(unknown provider)';
-              const duration = a && a.duration != null ? `${a.duration}ms` : 'n/a';
-              const err = a && a.error
-                ? `<div style="margin-top:4px; color: var(--text-muted); font-size:0.72rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${String(a.error).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
-                : '';
-              return `
-                <div style="padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: #faf9f8;">
-                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                    <div style="font-size:0.78rem; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><span style="color:var(--text-muted);">#${idx + 1}</span> ${provider}/${model}</div>
-                    <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-                      <span style="font-size:0.7rem; color:var(--text-muted);">${duration}</span>
-                      <span style="background:${chipBg}; color:${chipFg}; padding:2px 6px; border-radius:999px; font-size:0.68rem; font-weight:700;">${code}</span>
-                    </div>
-                  </div>
-                  ${err}
-                </div>`;
-            }).join('');
-
-            failoverHtml = `
-              <div style="margin-top: 12px; border-left: 3px solid ${hadFailover ? 'var(--warning)' : 'var(--accent)'}; padding-left: 12px;">
-                <div style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: ${hadFailover ? 'var(--warning)' : 'var(--accent)'}; margin-bottom: 6px;">ROUTING ATTEMPTS ${hadFailover ? `(Failovers: ${retryCount})` : ''}</div>
-                <div style="display:flex; flex-direction:column; gap:6px;">${attemptRows}</div>
-              </div>
-            `;
-          }
-
-          const logModelStatus = allModels ? (allModels.find(m => m.modelId === l.model)?.status || 'unknown') : 'unknown';
-          const isBanned = logModelStatus === 'banned';
-          // Use a stable unique id for toggling
-          const cardId = 'log-' + l.timestamp.replace(/[^a-z0-9]/gi, '');
-          const isExpanded = expandedCards.has(cardId) ? ' expanded' : '';
-          return `
-            <div class="log-card${isExpanded}" id="${cardId}">
-              <div class="log-card-header" onclick="toggleLogCard('${cardId}')">
-                <div style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                  <span class="log-chevron">▶</span>
-                  <div style="min-width:0;">
-                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap:wrap;">
-                      <span style="font-weight: 600; font-size: 0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${l.model}</span>
-                      ${resolvedModelChip}
-                      ${statusBadge}
-                    </div>
-                    <div style="font-size: 0.78rem; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap; margin-top:2px;">
-                      <span>${timeStr}</span>
-                      <span>•</span>
-                      <span>${l.provider}</span>
-                      ${hadFailover ? `<span>•</span><span style="color: var(--warning); font-weight: 600;">🔁 ${retryCount} failover${retryCount > 1 ? 's' : ''}</span>` : ''}
-                      ${l.duration ? `<span>•</span><span>${l.duration}ms total</span>` : ''}
-                      ${l.ttft != null && l.ttft !== l.duration ? `<span>•</span><span style="color: var(--accent);">⚡ ${l.ttft}ms TTFT</span>` : ''}
-                      ${l.prompt_tokens != null || l.completion_tokens != null ? `<span>•</span><span style="color: var(--text-muted);"><span style="font-weight: 600; color: var(--text);">${l.prompt_tokens || 0}</span> in / <span style="font-weight: 600; color: var(--text);">${l.completion_tokens || 0}</span> out</span>` : ''}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="log-card-body">
-                ${msgHtml}
-                ${responseHtml}
-                ${toolCallsHtml}
-                ${functionCallHtml}
-                ${failoverHtml}
-                ${errorHtml}
-                <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--border); display:flex; justify-content:flex-end;">
-                  <button onclick="event.stopPropagation(); toggleBan('${l.model}', '${logModelStatus}')" style="background: ${isBanned ? '#e5e7eb' : '#fef2f2'}; border: 1px solid ${isBanned ? '#d1d5db' : '#fecaca'}; padding: 6px 14px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; color: ${isBanned ? '#374151' : '#991b1b'}; cursor: pointer;">${isBanned ? '✓ Unban Model' : '🚫 Ban Model'}</button>
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('');
-      } catch (err) { console.error(err); }
-    }
-
-    function setLogsViewMode(mode) {
-      logsViewMode = mode === 'history' ? 'history' : 'cards';
-      const cardsBtn = document.getElementById('logs-mode-cards');
-      const historyBtn = document.getElementById('logs-mode-history');
-      if (cardsBtn && historyBtn) {
-        cardsBtn.classList.toggle('active', logsViewMode === 'cards');
-        historyBtn.classList.toggle('active', logsViewMode === 'history');
-        cardsBtn.setAttribute('aria-selected', logsViewMode === 'cards' ? 'true' : 'false');
-        historyBtn.setAttribute('aria-selected', logsViewMode === 'history' ? 'true' : 'false');
-      }
-      loadLogs(true);
-    }
-
-    function escapeHtml(value) {
-      return String(value)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-    }
-
-    function stableStringify(value) {
-      if (value == null || typeof value !== 'object') {
-        return JSON.stringify(value);
-      }
-      if (Array.isArray(value)) {
-        return '[' + value.map(stableStringify).join(',') + ']';
-      }
-      const keys = Object.keys(value).sort();
-      return '{' + keys.map(k => JSON.stringify(k) + ':' + stableStringify(value[k])).join(',') + '}';
-    }
-
-    function getLocalDayKey(ts) {
-      const d = new Date(ts);
-      if (Number.isNaN(d.getTime())) return 'invalid-day';
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    }
-
-    function simpleHash(input) {
-      let hash = 2166136261;
-      for (let i = 0; i < input.length; i++) {
-        hash ^= input.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-      }
-      return (hash >>> 0).toString(16);
-    }
-
-    function normalizeMessageForHash(msg) {
-      const normalized = {
-        role: msg && msg.role ? String(msg.role) : 'unknown',
-        name: msg && msg.name ? String(msg.name) : '',
-        tool_call_id: msg && msg.tool_call_id ? String(msg.tool_call_id) : '',
-        content: msg && msg.content != null ? msg.content : '',
-      };
-      if (msg && msg.tool_calls != null) normalized.tool_calls = msg.tool_calls;
-      if (msg && msg.function_call != null) normalized.function_call = msg.function_call;
-      return stableStringify(normalized);
-    }
-
-    function formatMessageContent(content) {
-      if (typeof content === 'string') return content;
-      if (content == null) return '';
-      try {
-        return JSON.stringify(content, null, 2);
-      } catch {
-        return String(content);
-      }
-    }
-
-    function roleColor(role) {
-      if (role === 'system') return 'var(--warning)';
-      if (role === 'user') return 'var(--success)';
-      if (role === 'assistant') return 'var(--accent)';
-      if (role === 'tool') return '#8b5cf6';
-      return 'var(--text-muted)';
-    }
-
-    function renderMessageHistory(logs, container) {
-      const deduped = [];
-      const seen = new Set();
-      let insertSeq = 0;
-
-      const mostRecentFirst = Array.isArray(logs) ? logs : [];
-      for (const l of mostRecentFirst) {
-        const timestamp = l && l.timestamp ? l.timestamp : null;
-        const model = l && l.model ? l.model : '(unknown model)';
-        const resolvedModel = l && l.resolvedModel ? l.resolvedModel : null;
-        const sourceMessages = Array.isArray(l && l.messages)
-          ? [...l.messages].reverse()
-          : (typeof (l && l.messages) === 'string' ? [{ role: 'raw', content: l.messages }] : []);
-
-        if (l && l.response) {
-          const assistantCandidate = { role: 'assistant', content: l.response };
-          const dedupeKey = `${getLocalDayKey(timestamp)}:${simpleHash(normalizeMessageForHash(assistantCandidate))}`;
-          if (!seen.has(dedupeKey)) {
-            seen.add(dedupeKey);
-            deduped.push({ role: 'assistant', content: l.response, timestamp, model, resolvedModel, tsMs: Date.parse(timestamp || ''), seq: insertSeq++ });
-          }
-        }
-
-        if (l && l.tool_calls) {
-          const toolCallsCandidate = { role: 'assistant', content: l.tool_calls };
-          const dedupeKey = `${getLocalDayKey(timestamp)}:${simpleHash(normalizeMessageForHash(toolCallsCandidate))}`;
-          if (!seen.has(dedupeKey)) {
-            seen.add(dedupeKey);
-            deduped.push({ role: 'assistant', content: l.tool_calls, timestamp, model, resolvedModel, tsMs: Date.parse(timestamp || ''), seq: insertSeq++ });
-          }
-        }
-
-        if (l && l.function_call) {
-          const functionCallCandidate = { role: 'assistant', content: l.function_call };
-          const dedupeKey = `${getLocalDayKey(timestamp)}:${simpleHash(normalizeMessageForHash(functionCallCandidate))}`;
-          if (!seen.has(dedupeKey)) {
-            seen.add(dedupeKey);
-            deduped.push({ role: 'assistant', content: l.function_call, timestamp, model, resolvedModel, tsMs: Date.parse(timestamp || ''), seq: insertSeq++ });
-          }
-        }
-
-        for (const m of sourceMessages) {
-          const role = m && m.role ? String(m.role) : 'unknown';
-          const content = m && m.content != null ? m.content : '';
-          const candidate = {
-            role,
-            content,
-            name: m && m.name ? m.name : '',
-            tool_call_id: m && m.tool_call_id ? m.tool_call_id : '',
-            tool_calls: m && m.tool_calls ? m.tool_calls : undefined,
-            function_call: m && m.function_call ? m.function_call : undefined,
-          };
-          const dedupeKey = `${getLocalDayKey(timestamp)}:${simpleHash(normalizeMessageForHash(candidate))}`;
-          if (seen.has(dedupeKey)) continue;
-          seen.add(dedupeKey);
-          deduped.push({ role, content, timestamp, model, resolvedModel, tsMs: Date.parse(timestamp || ''), seq: insertSeq++ });
-        }
-      }
-
-      deduped.sort((a, b) => {
-        const aTs = Number.isNaN(a.tsMs) ? -Infinity : a.tsMs;
-        const bTs = Number.isNaN(b.tsMs) ? -Infinity : b.tsMs;
-        if (bTs !== aTs) return bTs - aTs;
-        return a.seq - b.seq;
-      });
-
-      if (deduped.length === 0) {
-        container.innerHTML = '<div style="padding: 24px; text-align:center; color:var(--text-muted); background: var(--card); border: 1px solid var(--border); border-radius: 12px;">No messages found in recent request logs.</div>';
-        return;
-      }
-
-      container.innerHTML = deduped.map(item => {
-        const role = item.role || 'unknown';
-        const date = new Date(item.timestamp);
-        const timeStr = Number.isNaN(date.getTime())
-          ? 'Unknown time'
-          : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        const dateStr = Number.isNaN(date.getTime())
-          ? 'Unknown date'
-          : date.toLocaleDateString([], { year: 'numeric', month: 'short', day: '2-digit' });
-        const content = escapeHtml(formatMessageContent(item.content));
-        const badgeColor = roleColor(role);
-
-        return `
-          <div style="background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);">
-            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size: 0.68rem; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; color:${badgeColor};">${escapeHtml(role)}</span>
-            </div>
-            <div style="font-family: monospace; font-size: 0.8rem; white-space: pre-wrap; word-break: break-word; color: var(--text); background: #faf9f8; padding: 9px; border-radius: 7px; border: 1px solid var(--border); max-height: 240px; overflow-y:auto;">${content}</div>
-            <div style="margin-top:8px; font-size: 0.74rem; color: var(--text-muted); display:flex; gap:8px; flex-wrap:wrap;">
-              <span>${timeStr}</span>
-              <span>•</span>
-              <span>${dateStr}</span>
-              <span>•</span>
-              <span>${escapeHtml(item.model || '(unknown model)')}</span>
-              ${item.resolvedModel ? `<span>•</span><span style="color:#3730a3;">resolved: ${escapeHtml(item.resolvedModel)}</span>` : ''}
-            </div>
-          </div>
-        `;
-      }).join('');
-    }
-
-    function toggleLogCard(id) {
-      document.getElementById(id)?.classList.toggle('expanded');
-    }
-
-    function openDrawer(m) {
-      openDrawerModelId = m.modelId;
-      document.getElementById('drawer-title').textContent = m.label;
-      updateDrawerContent(m);
-      document.getElementById('drawer').classList.add('open');
-      document.getElementById('overlay').classList.add('active');
-    }
-
-    function updateDrawerContent(m) {
-      // Build real telemetry chart from ping history
-      const pings = m.pings || [];
-      const successPings = pings.filter(p => p.code === '200' && typeof p.ms === 'number');
-      const maxMs = successPings.length > 0 ? Math.max(...successPings.map(p => p.ms)) : 0;
-      const minMs = successPings.length > 0 ? Math.min(...successPings.map(p => p.ms)) : 0;
-
-      let chartHtml;
-      if (pings.length === 0) {
-        chartHtml = `<div style="height:48px; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-size:0.8rem;">No data yet — collecting pings...</div>`;
-      } else {
-        const bars = pings.map(p => {
-          const ok = p.code === '200' && typeof p.ms === 'number';
-          const heightPct = ok && maxMs > 0
-            ? Math.max(15, Math.round((p.ms / maxMs) * 100))
-            : 15;
-          const color = ok ? 'var(--success)' : 'var(--error)';
-          const tip = escapeHtml(formatPingHover(p)).replace(/"/g, '&quot;');
-          return `<div title="${tip}" style="flex:1; min-width:4px; height:${heightPct}%; background:${color}; border-radius:2px; opacity:0.8; cursor:default;"></div>`;
-        }).join('');
-
-        const rangeLabel = successPings.length > 0
-          ? `${minMs}ms – ${maxMs}ms &nbsp;·&nbsp; ${successPings.length}/${pings.length} ok`
-          : `${pings.length} ping${pings.length > 1 ? 's' : ''}, none successful`;
-
-        chartHtml = `
-          <div style="display:flex; gap:2px; height:48px; align-items:flex-end;">${bars}</div>
-          <div style="margin-top:8px; font-size:0.72rem; color:var(--text-muted); display:flex; justify-content:space-between;">
-            <span>${rangeLabel}</span>
-            <span style="display:flex; gap:10px; align-items:center;">
-              <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--success);"></span>ok</span>
-              <span style="display:flex;align-items:center;gap:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--error);"></span>fail</span>
-            </span>
-          </div>`;
-      }
-
-      const isModelPinned = activePinnedRowKeys.includes(getModelRowKey(m));
-      const lastErrorHtml = m.lastError && m.lastError.message
-        ? `<div style="margin: -6px 0 14px; padding: 10px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; color: #7f1d1d; font-size: 0.76rem;">
-            <div style="font-weight: 700; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.68rem; color: #991b1b;">Last Ping Error</div>
-            <div style="word-break: break-word;">${escapeHtml(m.lastError.message)}</div>
-          </div>`
-        : '';
-      document.getElementById('drawer-content').innerHTML = `
-        <div style="margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
-          <div style="min-width:0; flex:1;">
-            <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Model ID</div>
-            <div style="font-family: monospace; background: #f3f2f1; padding: 12px; border-radius: 8px; font-size: 0.875rem; word-break:break-all;">${m.modelId}</div>
-          </div>
-          <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
-            <button onclick="pinModel('${isModelPinned ? '' : m.modelId}', '${m.providerKey}')" style="background: ${isModelPinned ? '#eff6ff' : '#f3f2f1'}; border: ${isModelPinned ? '1px solid #bfdbfe' : '1px solid transparent'}; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; color: ${isModelPinned ? '#1e40af' : 'var(--text)'}; cursor: pointer;">
-              ${isModelPinned ? '📌 Unpin Model' : '📌 Pin Model'}
-            </button>
-            <button onclick="pingModelNow('${m.modelId}')" style="background: #ecfeff; border: 1px solid #a5f3fc; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; color: #0e7490; cursor: pointer;">
-              📶 Ping Now
-            </button>
-            <button onclick="toggleBan('${m.modelId}', '${m.status}')" style="background: ${m.status === 'banned' ? 'var(--text-muted)' : '#fef2f2'}; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; color: ${m.status === 'banned' ? '#fff' : '#991b1b'}; cursor: pointer;">
-              ${m.status === 'banned' ? 'Unban Model' : 'Ban Model'}
-            </button>
-          </div>
-        </div>
-        ${lastErrorHtml}
-        <div id="drawer-ping-status" style="margin: -8px 0 16px; font-size: 0.75rem; color: var(--text-muted);"></div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px;">
-          <div style="background: #faf9f8; padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">SWE-bench</div>
-            <div style="font-weight: 700;">${getBenchmarkDisplayValue(m.intell, m.isEstimatedScore)}</div>
-          </div>
-          <div style="background: #faf9f8; padding: 16px; border-radius: 12px; border: 1px solid var(--border);">
-            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px;">Context</div>
-            <div style="font-weight: 700;">${m.ctx || 'N/A'}</div>
-          </div>
-        </div>
-        <div style="margin-top: auto; padding-top: 40px;">
-          <h4 style="margin-bottom: 12px; font-size: 0.875rem;">Recent Telemetry <span style="font-weight:400; color:var(--text-muted);">(last ${pings.length} ping${pings.length !== 1 ? 's' : ''})</span></h4>
-          ${chartHtml}
-        </div>
-      `;
-    }
-
-    function closeDrawer() {
-      openDrawerModelId = null;
-      document.getElementById('drawer').classList.remove('open');
-      document.getElementById('overlay').classList.remove('active');
-    }
-
-    async function pingModelNow(modelId) {
-      const statusEl = document.getElementById('drawer-ping-status');
-      if (statusEl) {
-        statusEl.style.color = 'var(--text-muted)';
-        statusEl.textContent = 'Pinging model now...';
-      }
-
-      try {
-        const res = await fetch('/api/models/ping', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ modelId })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Failed to ping model.');
-        }
-
-        if (statusEl) {
-          const last = data.model && data.model.lastPing != null ? `${data.model.lastPing}ms` : 'done';
-          statusEl.style.color = 'var(--success)';
-          statusEl.textContent = `Ping complete (${last}).`;
-        }
-
-        await fetchData();
-
-        if (openDrawerModelId === modelId) {
-          const updatedModel = allModels ? allModels.find(r => r.modelId === modelId) : null;
-          if (updatedModel) updateDrawerContent(updatedModel);
-        }
-      } catch (e) {
-        if (statusEl) {
-          statusEl.style.color = 'var(--error)';
-          statusEl.textContent = e.message || 'Failed to ping model.';
-        }
-      }
-    }
-
-    async function toggleBan(modelId, currentStatus) {
-      try {
-        const isBanning = currentStatus !== 'banned';
-        await fetch('/api/models/ban', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ modelId, banned: isBanning })
-        });
-
-        // Immediately refresh telemetry data and logs
-        await fetchData();
-        if (typeof loadLogs === 'function') loadLogs(true);
-
-        // Re-render drawer if it is currently open for this model
-        if (openDrawerModelId === modelId) {
-          const updatedModel = allModels ? allModels.find(r => r.modelId === modelId) : null;
-          if (updatedModel) updateDrawerContent(updatedModel);
-        }
-      } catch (e) {
-        console.error('Failed to toggle ban status', e);
-      }
-    }
-
+    bindTabNavigation();
+    setTelemetryLane(appState.telemetryLaneFilter);
     initializeChat();
     updateLogsPauseButton();
     setInterval(fetchData, 4000);
@@ -2449,25 +2305,42 @@ Object.assign(window, {
   copyConfigTokenFromBox,
   exportConfigTokenToBox,
   handleChatInputKeydown,
+  handleCatalogSearch,
   handleSearch,
   importConfigTokenFromBox,
   loadLogs,
   onChatModelChange,
   pinModel,
   render,
+  renderCatalog,
   resetSort,
   sendChatMessage,
+  setCatalogLane,
+  setCatalogProfile,
+  setCatalogSort,
+  setCatalogView,
+  setTelemetryLane,
   setLogsViewMode,
   setSort,
   toggleAll,
+  toggleCatalogFilter,
+  toggleCompareModel,
   toggleFilterBar,
   toggleLogsAutoRefresh,
+  toggleLogCard,
   openDrawer,
   toggleBan,
   pingModelNow,
+  clearCompareModels,
   saveAutoUpdateSettings,
   saveFilterRules,
+  applyProviderDefaults,
   updatePinningMode,
+  switchSettingsPanel,
+  toggleProviderCard,
+  revealProviderCard,
+  hideProviderCard,
+  clearCatalogFilters,
   updateProvider,
   updateProviderKey,
   deleteProviderKey,
@@ -2475,5 +2348,7 @@ Object.assign(window, {
   updateProviderModelId,
   updateProviderPingInterval,
   updateProviderBearerAuth,
+  updateProviderCatalogVisibility,
   startQwenOAuthLogin,
 });
+

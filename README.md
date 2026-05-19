@@ -1,9 +1,7 @@
 # ModelFoundry
 
-ModelFoundry is an OpenAI-compatible local router and dashboard for free/open coding models.
-It benchmarks model quality and provider health, then routes requests to the best available backend through a single local endpoint.
-
-For Bailey's stack, it is best treated as an optional router/dashboard layer for OpenClaw and OpenCode rather than a hard replacement for your primary model setup.
+ModelFoundry is Axiom-Labs' OpenAI-compatible optional model router, dashboard, and comparison layer for OpenClaw, OpenCode, and adjacent local AI workflows.
+It combines benchmark-informed model quality with live provider health, then routes requests through a single local endpoint without forcing you to replace your primary paid model stack.
 
 <div align="center">
   <img src="docs/assets/dashboard.png" alt="ModelFoundry Dashboard" width="100%">
@@ -14,8 +12,19 @@ For Bailey's stack, it is best treated as an optional router/dashboard layer for
 - **One local endpoint** for many providers
 - **OpenAI-compatible API** for existing tools and scripts
 - **Automatic routing** based on quality + latency + uptime
-- **Free/open model focus** with a live dashboard for comparison
-- **Optional integration layer** for OpenClaw and OpenCode
+- **Live dashboard and comparison layer** for informed model decisions
+- **Optional provider lane** for OpenClaw and OpenCode instead of a hard stack replacement
+
+## Product position
+
+ModelFoundry is best treated as:
+
+- an **optional provider lane**
+- a **router**
+- a **dashboard**
+- a **comparison layer**
+
+It is not meant to replace your main paid stack by default.
 
 ## Quick start
 
@@ -74,10 +83,13 @@ Run onboarding for guided setup:
 model-foundry onboard
 ```
 
+The quick-start path now recommends `OpenRouter` as the default first provider, with `Groq` as the fast single-provider option and `OpenAI-Compatible` as the bring-your-own-upstream path.
+
 Manual docs:
 
 - [OpenClaw integration](docs/integrations/openclaw.md)
 - [OpenCode integration](docs/integrations/opencode.md)
+- [Frontier provider catalog](docs/integrations/frontier.md)
 
 ## Docs
 
@@ -115,11 +127,17 @@ Supported API key env vars include:
 - `OPENROUTER_API_KEY`
 - `OPENCODE_API_KEY`
 - `OPENAI_COMPATIBLE_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
 - `CODESTRAL_API_KEY`
 - `SCALEWAY_API_KEY`
 - `QWEN_CODE_API_KEY` or `DASHSCOPE_API_KEY`
 - `KILOCODE_API_KEY`
 - `GOOGLE_API_KEY`
+
+The frontend can also use the shared frontier catalog endpoint:
+
+- `GET /api/provider-meta`
 
 ## Development
 
@@ -154,9 +172,7 @@ npm test
 
 Production/server mode serves the built `dist/` app automatically when it exists.
 
-## Community
+## Project
 
 - GitHub: https://github.com/Codename-11/model-foundry
-- Discord: https://discord.gg/AqX6Sawq5w
-
-If this thing saves you from babysitting model/provider roulette, a GitHub star is a nice way to admit it.
+- Organization: Axiom-Labs

@@ -57,40 +57,50 @@
         <svg class="kpi-bg-svg" id="bg-models-svg" preserveAspectRatio="xMidYMid slice"></svg>
         <div class="kpi-content">
           <div class="kpi-label">
-            Models Online
+            Best Open Lane
             <svg class="signal-icon" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" />
             </svg>
           </div>
-          <div class="kpi-value" id="kpi-active">0</div>
+          <div class="kpi-value" id="kpi-open-best">Calculating...</div>
+          <div class="kpi-meta" id="kpi-open-meta">Open pool loading...</div>
         </div>
       </div>
       <div class="kpi-card">
         <svg class="kpi-bg-svg" id="bg-providers-svg" preserveAspectRatio="xMidYMid slice"></svg>
         <div class="kpi-content">
           <div class="kpi-label">
-            Providers Online
+            Best Frontier Lane
             <svg class="signal-icon" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" />
             </svg>
           </div>
-          <div class="kpi-value" id="kpi-providers">0</div>
+          <div class="kpi-value" id="kpi-frontier-best">Waiting...</div>
+          <div class="kpi-meta" id="kpi-frontier-meta">Frontier stack loading...</div>
         </div>
       </div>
     </div>
 
     <div class="tabs">
-      <div class="tab active" id="tab-models" onclick="switchTab('models')">Live Telemetry</div>
-      <div class="tab" id="tab-chat" onclick="switchTab('chat')">Chat</div>
-      <div class="tab" id="tab-logs" onclick="switchTab('logs')">Request Logs</div>
-      <div class="tab" id="tab-settings" onclick="switchTab('settings')">Settings</div>
-      <div class="tab" id="tab-setup" onclick="switchTab('setup')">Setup Instructions</div>
+      <div class="tab active" id="tab-models" data-tab="models" onclick="switchTab('models')">Live Telemetry</div>
+      <div class="tab" id="tab-catalog" data-tab="catalog" onclick="switchTab('catalog')">Model Catalog</div>
+      <div class="tab" id="tab-chat" data-tab="chat" onclick="switchTab('chat')">Chat</div>
+      <div class="tab" id="tab-logs" data-tab="logs" onclick="switchTab('logs')">Request Logs</div>
+      <div class="tab" id="tab-settings" data-tab="settings" onclick="switchTab('settings')">Settings</div>
+      <div class="tab" id="tab-setup" data-tab="setup" onclick="switchTab('setup')">Setup Instructions</div>
     </div>
 
     <div id="models-view">
       <div class="table-container">
         <div class="table-header">
-          <div class="table-title">Models</div>
+          <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+            <div class="table-title">Models</div>
+            <div class="telemetry-lane-switch" role="tablist" aria-label="Telemetry lane filter">
+              <button id="lane-filter-general" class="telemetry-lane-btn" onclick="setTelemetryLane('general')" role="tab" aria-selected="false">Open / General</button>
+              <button id="lane-filter-all" class="telemetry-lane-btn active" onclick="setTelemetryLane('all')" role="tab" aria-selected="true">All</button>
+              <button id="lane-filter-frontier" class="telemetry-lane-btn" onclick="setTelemetryLane('frontier')" role="tab" aria-selected="false">Frontier</button>
+            </div>
+          </div>
           <div class="search-bar">
             <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2">
@@ -111,6 +121,12 @@
               Filters
             </button>
             <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font-size:0.8rem; color:var(--text-muted); cursor:pointer; user-select:none;"
+                onclick="document.getElementById('tracked-rows-toggle').click()">Show tracked / disabled</span>
+              <label class="switch">
+                <input type="checkbox" id="tracked-rows-toggle" onchange="setTelemetryTrackedVisibility(this.checked)">
+                <span class="slider"></span>
+              </label>
               <div id="hover-pause-badge"
                 style="display:none; background:var(--warning); color:#92400e; padding:4px 8px; border-radius:6px; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; align-items:center; gap:4px;">
                 ⏸ Paused on hover</div>
@@ -128,6 +144,35 @@
               sort</button>
           </div>
         </div>
+
+        <div class="telemetry-help">
+          <div class="telemetry-help-card">
+            <span class="lane-chip general">Open / General</span>
+            <p>Default router pool for OpenRouter, open-model hosts, and other non-frontier providers. Some of these lanes still require API keys.</p>
+          </div>
+          <div class="telemetry-help-card">
+            <span class="lane-chip frontier">Frontier</span>
+            <p>Direct paid lanes for Anthropic Claude, OpenAI GPT / Codex, and Google Gemini.</p>
+          </div>
+          <div class="telemetry-help-card">
+            <div class="telemetry-help-title">API Key Note</div>
+            <p>Only optional-auth lanes can work without a key. OpenRouter still needs its own key even for <code>:free</code> variants.</p>
+          </div>
+          <div class="telemetry-help-card">
+            <div class="telemetry-help-title">Benchmark Score</div>
+            <p>Benchmark Score is the quality anchor for routing. It comes from the repo-maintained benchmark reference and is combined with live ping and availability.</p>
+          </div>
+          <div class="telemetry-help-card">
+            <div class="telemetry-help-title">History</div>
+            <p>Recent route telemetry now persists across restarts, so trend lines and availability recover from previous sessions instead of resetting every time the server restarts.</p>
+          </div>
+        </div>
+
+        <div id="compare-panel" class="compare-panel compare-panel-empty">
+          <!-- Comparison panel generated by JS -->
+        </div>
+
+        <div id="telemetry-status-banner" class="catalog-empty-state" style="display:none;"></div>
 
         <div class="filter-bar">
 
@@ -197,7 +242,7 @@
                   id="arrow-model">↕</i></th>
               <th class="sortable" width="80" onclick="setSort('qos')" id="th-qos">QoS <i class="sort-arrow"
                   id="arrow-qos">↕</i></th>
-              <th class="sortable" width="80" onclick="setSort('intell')" id="th-intell">SWE% <i class="sort-arrow"
+              <th class="sortable" width="110" onclick="setSort('intell')" id="th-intell">Benchmark Score <i class="sort-arrow"
                   id="arrow-intell">↕</i></th>
               <th class="sortable text-right" width="120" onclick="setSort('ping')" id="th-ping">Ping <i
                   class="sort-arrow" id="arrow-ping">↕</i></th>
@@ -214,38 +259,234 @@
       </div>
     </div>
 
-    <div id="settings-view" style="display: none;">
-      <h2 style="margin-top: 0; font-size: 1.25rem;">Settings</h2>
-      <p style="color: var(--text-muted); margin-bottom: 1.25rem; font-size: 0.875rem;">Manage optional router update behavior and provider credentials.</p>
-      <div id="autoupdate-container" class="provider-section">
-        <!-- Auto-update settings generated here -->
-      </div>
-      <h3 style="margin: 2rem 0 0.25rem; font-size: 1rem;">Pinning</h3>
-      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Choose whether pinning locks one exact provider model or the whole canonical model family across providers.</p>
-      <div id="pinning-settings-container" class="provider-section">
-        <!-- Pinning settings generated here -->
-      </div>
-      <h3 style="margin: 0 0 0.25rem; font-size: 1rem;">Ping Filtering Exceptions</h3>
-      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Exclude models from pinging and routing based on criteria.</p>
-      <div id="filter-rules-container">
-        <!-- Filter rules UI generated here -->
-      </div>
-      <h3 style="margin: 2rem 0 0.25rem; font-size: 1rem;">Providers</h3>
-      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Configure API keys to enable models from different providers.</p>
-      <div id="providers-container" class="autoupdate-panel">
-        <!-- Settings generated here -->
-      </div>
-      <h3 style="margin: 2rem 0 0.25rem; font-size: 1rem;">Configuration Transfer</h3>
-      <p style="color: var(--text-muted); margin: 0 0 1.25rem; font-size: 0.84rem;">Export/import all settings (including API keys) as a single encoded token for copy/paste migration.</p>
-      <div id="config-transfer-container">
-        <div class="autoupdate-panel">
-          <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
-            <button class="btn" style="padding:8px 14px;" onclick="exportConfigTokenToBox()">Export</button>
-            <button class="btn" style="padding:8px 14px;" onclick="copyConfigTokenFromBox()">Copy</button>
-            <button class="btn" style="padding:8px 14px; background:#ecfdf5; border-color:#a7f3d0; color:#065f46;" onclick="importConfigTokenFromBox()">Import</button>
+    <div id="catalog-view" style="display: none;">
+      <div class="table-container">
+        <div class="table-header">
+          <div>
+            <div class="table-title">Model Catalog</div>
+            <div class="catalog-header-copy">Track known models, benchmark coverage, and lane readiness without mixing frontier and open/general routes into one flat list.</div>
           </div>
-          <textarea id="config-transfer-payload" spellcheck="false" placeholder="Paste exported config token here..." style="width:100%; min-height:95px; box-sizing:border-box; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.78rem; line-height:1.4; resize:vertical; background:#fff;"></textarea>
-          <div id="config-transfer-status" class="autoupdate-save-status" style="margin-top:8px;"></div>
+          <div class="search-bar">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <input type="text" class="search-input" id="catalog-search-input"
+              placeholder="Search known models or providers..." oninput="handleCatalogSearch()">
+          </div>
+        </div>
+
+        <div id="catalog-overview" class="catalog-overview"></div>
+
+        <div class="telemetry-help">
+          <div class="telemetry-help-card">
+            <div class="telemetry-help-title">Lane-First Catalog</div>
+            <p>Use the lane tabs to split frontier tracking from open/general pools. This is the quickest way to avoid mixing paid frontier lanes into the broader catalog.</p>
+          </div>
+          <div class="telemetry-help-card">
+            <div class="telemetry-help-title">Benchmark Coverage</div>
+            <p>Cards and rows surface both the composite Benchmark Score and the count of source-specific public benchmark rows already seeded for that model.</p>
+          </div>
+          <div class="telemetry-help-card">
+            <div class="telemetry-help-title">Cards, Table, Compare</div>
+            <p>Browse quickly in cards, scan deeply in the grouped table, or switch to compare mode to make a lane/configuration decision with charts.</p>
+          </div>
+        </div>
+
+        <div class="catalog-profile-shell">
+          <div class="catalog-profile-header">
+            <div class="catalog-profile-title">Use-Case Profile</div>
+            <div id="catalog-profile-blurb" class="catalog-profile-copy">Show every tracked model without a use-case preference.</div>
+          </div>
+          <div class="catalog-profile-row">
+            <button class="catalog-profile-chip active" data-profile="all" type="button" onclick="setCatalogProfile('all')">All</button>
+            <button class="catalog-profile-chip" data-profile="coding" type="button" onclick="setCatalogProfile('coding')">Coding</button>
+            <button class="catalog-profile-chip" data-profile="fast-chat" type="button" onclick="setCatalogProfile('fast-chat')">Fast Chat</button>
+            <button class="catalog-profile-chip" data-profile="long-context" type="button" onclick="setCatalogProfile('long-context')">Long Context</button>
+            <button class="catalog-profile-chip" data-profile="frontier-quality" type="button" onclick="setCatalogProfile('frontier-quality')">Frontier Quality</button>
+            <button class="catalog-profile-chip" data-profile="cheap-open" type="button" onclick="setCatalogProfile('cheap-open')">Cheap Open Lane</button>
+          </div>
+        </div>
+
+        <div class="catalog-toolbar">
+          <div class="catalog-toolbar-group">
+            <div class="telemetry-lane-switch" role="tablist" aria-label="Catalog lane">
+              <button id="catalog-lane-all" class="telemetry-lane-btn active" onclick="setCatalogLane('all')" role="tab" aria-selected="true">All Models</button>
+              <button id="catalog-lane-general" class="telemetry-lane-btn" onclick="setCatalogLane('general')" role="tab" aria-selected="false">Open / General</button>
+              <button id="catalog-lane-frontier" class="telemetry-lane-btn" onclick="setCatalogLane('frontier')" role="tab" aria-selected="false">Frontier</button>
+            </div>
+            <div class="telemetry-lane-switch" role="tablist" aria-label="Catalog view">
+              <button id="catalog-view-table" class="telemetry-lane-btn active" onclick="setCatalogView('table')" role="tab" aria-selected="true">Table</button>
+              <button id="catalog-view-cards" class="telemetry-lane-btn" onclick="setCatalogView('cards')" role="tab" aria-selected="false">Cards</button>
+              <button id="catalog-view-compare" class="telemetry-lane-btn" onclick="setCatalogView('compare')" role="tab" aria-selected="false">Compare</button>
+            </div>
+          </div>
+          <div class="catalog-toolbar-group catalog-toolbar-side">
+            <label class="catalog-sort-label" for="catalog-sort-select">Sort</label>
+            <select id="catalog-sort-select" class="catalog-sort-select" onchange="setCatalogSort(this.value)">
+              <option value="best">Best overall</option>
+              <option value="benchmark">Best benchmark</option>
+              <option value="ping">Fastest live</option>
+              <option value="availability">Most available</option>
+              <option value="benchmarked">Most benchmarked</option>
+              <option value="az">A–Z</option>
+            </select>
+            <div id="catalog-summary" class="catalog-summary"></div>
+          </div>
+        </div>
+
+        <div class="catalog-filter-row">
+          <button class="catalog-filter-chip" data-filter="active" type="button" onclick="toggleCatalogFilter('active')">Active</button>
+          <button class="catalog-filter-chip" data-filter="configured" type="button" onclick="toggleCatalogFilter('configured')">Configured</button>
+          <button class="catalog-filter-chip" data-filter="benchmarked" type="button" onclick="toggleCatalogFilter('benchmarked')">Benchmarked</button>
+          <button class="catalog-filter-chip" data-filter="missing" type="button" onclick="toggleCatalogFilter('missing')">Missing Benchmarks</button>
+          <button class="catalog-filter-chip" data-filter="needs-key" type="button" onclick="toggleCatalogFilter('needs-key')">Needs API Key</button>
+          <button class="catalog-filter-chip" data-filter="no-key" type="button" onclick="toggleCatalogFilter('no-key')">No Key Required</button>
+          <button class="catalog-filter-chip" data-filter="coding" type="button" onclick="toggleCatalogFilter('coding')">Coding</button>
+          <button class="catalog-filter-chip" data-filter="general" type="button" onclick="toggleCatalogFilter('general')">General Use</button>
+          <button class="catalog-filter-chip" data-filter="reasoning" type="button" onclick="toggleCatalogFilter('reasoning')">Reasoning</button>
+          <button class="catalog-filter-chip" data-filter="long-context" type="button" onclick="toggleCatalogFilter('long-context')">Long Context</button>
+          <button class="catalog-filter-chip clear" type="button" onclick="clearCatalogFilters()">Clear</button>
+        </div>
+
+        <div id="catalog-results" class="catalog-results">
+          <!-- Catalog sections generated here -->
+        </div>
+      </div>
+    </div>
+
+    <div id="settings-view" style="display: none;">
+      <div class="settings-shell">
+        <div class="settings-shell-header">
+          <div>
+            <h2 class="settings-shell-title">Settings</h2>
+            <p class="settings-shell-copy">Manage provider lanes, routing policy, frontier access, and operational controls without one long credential wall.</p>
+          </div>
+          <div class="settings-shell-badge">Compact layout</div>
+        </div>
+
+        <input class="settings-subnav-input" type="radio" name="settings-subnav" id="settings-tab-overview" checked>
+        <input class="settings-subnav-input" type="radio" name="settings-subnav" id="settings-tab-providers">
+        <input class="settings-subnav-input" type="radio" name="settings-subnav" id="settings-tab-open">
+        <input class="settings-subnav-input" type="radio" name="settings-subnav" id="settings-tab-frontier">
+        <input class="settings-subnav-input" type="radio" name="settings-subnav" id="settings-tab-routing">
+        <input class="settings-subnav-input" type="radio" name="settings-subnav" id="settings-tab-advanced">
+
+        <div class="settings-shell-body">
+          <nav class="settings-subnav" aria-label="Settings sections">
+            <label class="settings-subnav-tab" for="settings-tab-overview" onclick="switchSettingsPanel('overview')">Overview</label>
+            <label class="settings-subnav-tab" for="settings-tab-providers" onclick="switchSettingsPanel('providers')">Providers</label>
+            <label class="settings-subnav-tab" for="settings-tab-open" onclick="switchSettingsPanel('open')">Open</label>
+            <label class="settings-subnav-tab" for="settings-tab-frontier" onclick="switchSettingsPanel('frontier')">Frontier</label>
+            <label class="settings-subnav-tab" for="settings-tab-routing" onclick="switchSettingsPanel('routing')">Routing</label>
+            <label class="settings-subnav-tab" for="settings-tab-advanced" onclick="switchSettingsPanel('advanced')">Advanced</label>
+          </nav>
+
+          <div class="settings-panels">
+            <section class="settings-panel" id="settings-panel-overview">
+              <div id="settings-overview-container" class="settings-overview-grid">
+                <!-- Overview generated here -->
+              </div>
+            </section>
+
+            <section class="settings-panel" id="settings-panel-providers">
+              <div class="settings-panel-header">
+                <div>
+                  <h3 class="settings-panel-title">Providers</h3>
+                  <p class="settings-panel-copy">Configure API keys and active model lanes here. Unconfigured providers stay in a compact add-provider shelf until you bring them into the working set.</p>
+                </div>
+              </div>
+              <div class="settings-provider-stack">
+                <div id="add-provider-container" class="settings-add-provider-inline">
+                  <!-- Add provider picker generated here -->
+                </div>
+                <div id="providers-container" class="settings-provider-accordion">
+                  <!-- Settings generated here -->
+                </div>
+              </div>
+            </section>
+
+            <section class="settings-panel" id="settings-panel-open">
+              <div class="settings-panel-header">
+                <div>
+                  <h3 class="settings-panel-title">Open / General Pool</h3>
+                  <p class="settings-panel-copy">This lane covers the default router pool: OpenRouter, open-model hosts, and other non-frontier providers. Some of these still need API keys.</p>
+                </div>
+              </div>
+              <div id="open-container" class="settings-mount">
+                <!-- Open/general guidance generated here -->
+              </div>
+            </section>
+
+            <section class="settings-panel" id="settings-panel-frontier">
+              <div class="settings-panel-header">
+                <div>
+                  <h3 class="settings-panel-title">Frontier Stack</h3>
+                  <p class="settings-panel-copy">Keep direct Claude, OpenAI/Codex, and Gemini lanes separate from the general provider pool.</p>
+                </div>
+              </div>
+              <div id="frontier-container" class="settings-mount">
+                <!-- Frontier guidance generated here -->
+              </div>
+            </section>
+
+            <section class="settings-panel" id="settings-panel-routing">
+              <div class="settings-section-stack">
+                <section class="settings-section-block">
+                  <div class="settings-section-heading">
+                    <h3>Pinning</h3>
+                    <p>Choose whether pinning locks one exact provider model or the whole canonical model family across providers.</p>
+                  </div>
+                  <div id="pinning-settings-container" class="settings-mount">
+                    <!-- Pinning settings generated here -->
+                  </div>
+                </section>
+
+                <section class="settings-section-block">
+                  <div class="settings-section-heading">
+                    <h3>Ping Filtering Exceptions</h3>
+                    <p>Exclude models from pinging and routing based on criteria.</p>
+                  </div>
+                  <div id="filter-rules-container" class="settings-mount">
+                    <!-- Filter rules UI generated here -->
+                  </div>
+                </section>
+              </div>
+            </section>
+
+            <section class="settings-panel" id="settings-panel-advanced">
+              <div class="settings-section-stack settings-section-stack-advanced">
+                <section class="settings-section-block">
+                  <div class="settings-section-heading">
+                    <h3>Auto-Update</h3>
+                    <p>Keep ModelFoundry fresh automatically with periodic update checks and safe background restarts.</p>
+                  </div>
+                  <div id="autoupdate-container" class="settings-mount">
+                    <!-- Auto-update settings generated here -->
+                  </div>
+                </section>
+
+                <section class="settings-section-block">
+                  <div class="settings-section-heading">
+                    <h3>Configuration Transfer</h3>
+                    <p>Export/import all settings, including API keys, as a single encoded token for copy/paste migration.</p>
+                  </div>
+                  <div id="config-transfer-container" class="settings-mount">
+                    <div class="autoupdate-panel">
+                      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                        <button class="btn" style="padding:8px 14px;" onclick="exportConfigTokenToBox()">Export</button>
+                        <button class="btn" style="padding:8px 14px;" onclick="copyConfigTokenFromBox()">Copy</button>
+                        <button class="btn" style="padding:8px 14px; background:#ecfdf5; border-color:#a7f3d0; color:#065f46;" onclick="importConfigTokenFromBox()">Import</button>
+                      </div>
+                      <textarea id="config-transfer-payload" name="config-transfer-payload" spellcheck="false" autocomplete="off" placeholder="Paste exported config token here..." style="width:100%; min-height:95px; box-sizing:border-box; border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:0.78rem; line-height:1.4; resize:vertical; background:#fff;"></textarea>
+                      <div id="config-transfer-status" class="autoupdate-save-status" style="margin-top:8px;"></div>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </div>
@@ -281,11 +522,14 @@
           <div>
             <h2 style="margin: 0; font-size: 1.25rem;">Chat</h2>
           </div>
-          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <label for="chat-model-select" style="font-size:0.76rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">Model</label>
-            <select id="chat-model-select" class="chat-model-select" onchange="onChatModelChange()">
-              <option value="auto-fastest">Auto (Fastest Available)</option>
-            </select>
+          <div class="chat-toolbar-controls">
+            <div class="chat-model-picker">
+              <label for="chat-model-select" style="font-size:0.76rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; font-weight:700;">Model</label>
+              <select id="chat-model-select" class="chat-model-select" onchange="onChatModelChange()">
+                <option value="auto-fastest">Auto (Fastest Available)</option>
+              </select>
+              <div id="chat-model-meta" class="chat-model-meta"></div>
+            </div>
             <button id="chat-clear-btn" class="btn" style="background: white; color: var(--text); border: 1px solid var(--border);" onclick="clearChat()">Clear Chat</button>
           </div>
         </div>
@@ -314,6 +558,11 @@
       <h2 style="margin-top: 0; font-size: 1.25rem;">Setup Instructions</h2>
       <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.875rem;">Configure OpenClaw and OpenCode
         (Opencode) to use this optional router/dashboard layer.</p>
+      <div style="margin-bottom: 1.5rem; padding: 14px 16px; border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 12px;">
+        <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #1d4ed8; margin-bottom: 6px;">Recommended First Run</div>
+        <div style="font-size: 0.9rem; font-weight: 700; margin-bottom: 4px;">Start with OpenRouter, then add other providers later.</div>
+        <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">ModelFoundry works best when you get one strong provider lane working first, keep your main OpenClaw/OpenCode primary untouched, and treat the router as an optional lane.</div>
+      </div>
 
       <div class="setup-grid">
         <div class="setup-card">

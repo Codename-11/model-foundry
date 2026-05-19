@@ -1,0 +1,62 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="overflow: visible;">
+  <!-- bottom cap -->
+  <path d="M 12 16.0 L 17 18.5 L 12 21.0 L 7 18.5 Z M 12 17.75 L 13.5 18.5 L 12 19.25 L 10.5 18.5 Z" fill="#64748B" fill-rule="evenodd" />
+  <polygon points="12,19.5 7,17.0 7,18.5 12,21.0" fill="#475569" />
+  <polygon points="12,19.5 17,17.0 17,18.5 12,21.0" fill="#334155" />
+  
+  <!-- Note: The top faces use 'currentColor' so the logo perfectly adapts to light/dark themes in your app -->
+  <path d="M 12 13.5 L 19 17.0 L 12 20.5 L 5 17.0 Z M 12 14.5 L 17 17.0 L 12 19.5 L 7 17.0 Z" fill="currentColor" fill-rule="evenodd" />
+  <polygon points="5,17.0 12,20.5 12,22.0 5,18.5" fill="#475569" />
+  <polygon points="12,20.5 19,17.0 19,18.5 12,22.0" fill="#334155" />
+
+  <!-- legs -->
+  <polygon points="5,7.0 7,7.0 7,17.0 5,17.0" fill="#64748B" />
+  <polygon points="19,7.0 17,7.0 17,17.0 19,17.0" fill="#64748B" />
+
+  <!-- emitter ports -->
+  <g stroke="none">
+    <polygon points="5.6,10.6 7.0,10.6 7.0,11.8 5.6,11.8" fill="#475569" />
+    <polygon points="6.2,10.8 7.0,10.8 7.0,11.6 6.2,11.6" fill="#0F172A" />
+    <circle cx="6.6" cy="11.2" r="0.2" fill="#FB923C" />
+    <polygon points="5.6,12.2 7.0,12.2 7.0,13.4 5.6,13.4" fill="#475569" />
+    <polygon points="6.2,12.4 7.0,12.4 7.0,13.2 6.2,13.2" fill="#0F172A" />
+    <circle cx="6.6" cy="12.8" r="0.2" fill="#FB923C" />
+    <polygon points="17.0,10.6 18.4,10.6 18.4,11.8 17.0,11.8" fill="#475569" />
+    <polygon points="17.0,10.8 17.8,10.8 17.8,11.6 17.0,11.6" fill="#0F172A" />
+    <circle cx="17.4" cy="11.2" r="0.2" fill="#FB923C" />
+    <polygon points="17.0,12.2 18.4,12.2 18.4,13.4 17.0,13.4" fill="#475569" />
+    <polygon points="17.0,12.4 17.8,12.4 17.8,13.2 17.0,13.2" fill="#0F172A" />
+    <circle cx="17.4" cy="12.8" r="0.2" fill="#FB923C" />
+  </g>
+
+  <!-- channels (Clean vector-native glow via opacity layering) -->
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="7.0" x2="12" y2="18.5" stroke="#EA580C" stroke-width="2.4" opacity="0.2" />
+    <line x1="12" y1="7.0" x2="12" y2="18.5" stroke="#FB923C" stroke-width="0.8" opacity="0.9" />
+
+    <line x1="7.2" y1="11.2" x2="10.8" y2="11.2" stroke="#EA580C" stroke-width="1.6" opacity="0.15" />
+    <line x1="7.2" y1="12.8" x2="10.8" y2="12.8" stroke="#EA580C" stroke-width="1.6" opacity="0.15" />
+    <line x1="7.2" y1="11.2" x2="10.8" y2="11.2" stroke="#EA580C" stroke-width="0.8" opacity="0.75" />
+    <line x1="7.2" y1="12.8" x2="10.8" y2="12.8" stroke="#EA580C" stroke-width="0.8" opacity="0.75" />
+
+    <line x1="13.2" y1="11.2" x2="16.8" y2="11.2" stroke="#EA580C" stroke-width="1.6" opacity="0.15" />
+    <line x1="13.2" y1="12.8" x2="16.8" y2="12.8" stroke="#EA580C" stroke-width="1.6" opacity="0.15" />
+    <line x1="13.2" y1="11.2" x2="16.8" y2="11.2" stroke="#EA580C" stroke-width="0.8" opacity="0.75" />
+    <line x1="13.2" y1="12.8" x2="16.8" y2="12.8" stroke="#EA580C" stroke-width="0.8" opacity="0.75" />
+  </g>
+
+  <!-- central core -->
+  <g stroke="none">
+    <polygon points="12,10.8 13.2,11.4 12,12.0 10.8,11.4" fill="#EA580C" />
+    <polygon points="10.8,11.4 12,12.0 12,13.2 10.8,12.6" fill="#C2410C" />
+    <polygon points="12,12.0 13.2,11.4 13.2,12.6 12,13.2" fill="#9A3412" />
+  </g>
+
+  <!-- top cap -->
+  <path d="M 12 4.5 L 17 7.0 L 12 9.5 L 7 7.0 Z M 12 6.25 L 13.5 7.0 L 12 7.75 L 10.5 7.0 Z" fill="#64748B" fill-rule="evenodd" />
+  <polygon points="12,3.0 7,5.5 7,7.0 12,4.5" fill="#475569" />
+  <polygon points="12,3.0 17,5.5 17,7.0 12,4.5" fill="#334155" />
+  <path d="M 12 2.0 L 19 5.5 L 12 9.0 L 5 5.5 Z M 12 3.0 L 17 5.5 L 12 8.0 L 7 5.5 Z" fill="currentColor" fill-rule="evenodd" />
+  <polygon points="5,5.5 12,9.0 12,10.5 5,7.0" fill="#475569" />
+  <polygon points="12,9.0 19,5.5 19,7.0 12,10.5" fill="#334155" />
+</svg>

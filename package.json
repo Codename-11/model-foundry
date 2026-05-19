@@ -1,6 +1,6 @@
 {
   "name": "model-foundry",
-  "version": "1.12.1",
+  "version": "0.1.0",
   "description": "OpenAI-compatible optional model router, dashboard, and comparison layer for OpenClaw and OpenCode.",
   "keywords": [
     "nvidia",
@@ -32,7 +32,7 @@
     "url": "git+https://github.com/Codename-11/model-foundry.git"
   },
   "license": "MIT",
-  "author": "anonymous",
+  "author": "Axiom-Labs",
   "type": "module",
   "main": "bin/modelrelay.js",
   "bin": {
