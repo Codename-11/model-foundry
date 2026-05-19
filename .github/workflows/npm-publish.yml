@@ -1,9 +1,8 @@
-# This workflow will run tests using node and then publish a package to GitHub Packages when a release is created
-# For more information see: https://docs.github.com/en/actions/publishing-packages/publishing-nodejs-packages
-
 name: Node.js Package
 
 on:
+  push:
+  pull_request:
   release:
     types: [created]
 
@@ -17,9 +16,39 @@ jobs:
           node-version: 20
       - run: npm ci
       - run: npm test
+      - run: npm run build
+
+  package-smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - name: Pack package
+        id: pack
+        run: |
+          node <<'NODE'
+          const { execSync } = require('node:child_process')
+          const fs = require('node:fs')
+
+          const output = execSync('npm pack --json', { encoding: 'utf8' })
+          const tarball = JSON.parse(output)[0].filename
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `tarball=${tarball}\n`)
+          NODE
+      - name: Install packed tarball and smoke test the CLI
+        run: |
+          tmpdir="$(mktemp -d)"
+          npm init -y --prefix "$tmpdir" >/dev/null
+          npm install "$GITHUB_WORKSPACE/${{ steps.pack.outputs.tarball }}" --prefix "$tmpdir" >/dev/null
+          "$tmpdir/node_modules/.bin/model-foundry" --help
 
   publish-npm:
-    needs: build
+    if: github.event_name == 'release'
+    needs: package-smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +57,7 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
       - run: npm ci
+      - run: npm run build
       - run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{secrets.npm_token}}

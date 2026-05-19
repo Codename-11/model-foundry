@@ -44,7 +44,8 @@ Potential improvements:
 
 - richer OpenClaw examples for optional routed lanes
 - more presets for local AI toolchains using OpenAI-compatible clients
-- clearer migration notes for older `model-foundry` installs
+- dedicated frontier-family settings sections for Claude, OpenAI GPT/Codex, and Gemini
+- clearer migration notes for older `modelrelay` installs
 
 ### 5. Operational polish
 

@@ -21,7 +21,7 @@ At the same time, the dashboard process continuously tracks provider health and 
 
 ### CLI entrypoint
 
-`bin/model-foundry.js`
+`bin/modelrelay.js` remains the shared CLI file, but the primary package binary is `model-foundry` and `modelrelay` stays as a legacy alias.
 
 Responsibilities:
 
@@ -88,13 +88,14 @@ The dashboard and router are the same local service.
 
 - the **UI** is for inspection, config, and manual control
 - the **API** is for OpenAI-compatible client traffic
+- the **provider catalog API** (`GET /api/provider-meta`) is for settings/onboarding metadata, including the separate frontier families
 
 That shared process is why onboarding, config transfer, provider settings, pinning, and update state all show up in both operational docs and architecture docs.
 
 ## Compatibility notes
 
 - canonical config lives at `~/.model-foundry.json`
-- a legacy mirror is still written to `~/.model-foundry.json`
-- legacy binary alias `model-foundry` still exists
+- a legacy mirror is still written to `~/.modelrelay.json`
+- legacy binary alias `modelrelay` still exists
 
 So the project is evolving names without instantly breaking older setups. A little messy, but usefully messy.

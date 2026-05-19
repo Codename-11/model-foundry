@@ -5,7 +5,7 @@
 ### Router config
 
 - canonical: `~/.model-foundry.json`
-- legacy mirror: `~/.model-foundry.json`
+- legacy mirror: `~/.modelrelay.json`
 
 The config stores provider API keys, provider enable/disable state, bans, update settings, and related routing controls.
 
@@ -24,12 +24,19 @@ ModelFoundry can read provider keys from environment variables instead of persis
 - `OPENCODE_API_KEY`
 - `OPENROUTER_API_KEY`
 - `OPENAI_COMPATIBLE_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
 - `CODESTRAL_API_KEY`
 - `SCALEWAY_API_KEY`
 - `QWEN_CODE_API_KEY`
 - `DASHSCOPE_API_KEY` (Qwen fallback)
 - `KILOCODE_API_KEY`
 - `GOOGLE_API_KEY`
+
+Frontend-oriented provider catalog:
+
+- `GET /api/provider-meta`
+- includes a separate frontier family section for Claude, OpenAI GPT/Codex, and Gemini
 
 Additional OpenAI-compatible provider env vars:
 
@@ -62,6 +69,7 @@ Platform-specific autostart support is implemented in `lib/autostart.js`.
 Uses a user-level systemd unit:
 
 - file: `~/.config/systemd/user/model-foundry.service`
+- legacy compatibility: `~/.config/systemd/user/modelrelay.service`
 
 ### macOS
 
@@ -90,6 +98,14 @@ Operationally:
 - updates install through npm
 - if autostart is configured, ModelFoundry manages stop/start behavior around the update flow
 - source checkouts intentionally block the normal npm self-update path
+
+Env overrides:
+
+- `MODEL_FOUNDRY_UPDATE_TARBALL`
+- `MODEL_FOUNDRY_UPDATE_VERSION`
+- `MODEL_FOUNDRY_FORCE_UPDATE_VERSION`
+- `MODEL_FOUNDRY_JSON_LIMIT`
+- legacy `MODELRELAY_` equivalents still work
 
 ## Provider behavior notes
 
