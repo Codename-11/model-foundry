@@ -5,18 +5,18 @@ ModelFoundry is deployed on Docker-Server as a local-only Docker Compose service
 ## Layout
 
 ```text
+~/model-foundry/                  # source checkout: Codename-11/model-foundry master
 ~/docker/modelfoundry/
   .env
   docker-compose.yml
   config/
-  src/
 ```
 
-`src/` is a checkout of `Codename-11/model-foundry` on the primary branch. `config/` is mounted as the container home, so ModelFoundry persists `config/.modelrelay.json` and log state outside the container.
+`~/model-foundry/` is the source checkout. `~/docker/modelfoundry/` contains only the Compose stack, env, and persistent runtime config. `config/` is mounted as the container home, so ModelFoundry persists `config/.modelrelay.json` and log state outside the container.
 
 ## Compose
 
-Use `deploy/docker-compose.yml` as the template for `~/docker/modelfoundry/docker-compose.yml`. It builds the local fork from `./src`, binds ModelFoundry to `127.0.0.1:7352`, and mounts persistent config at `/config`.
+Use `deploy/docker-compose.yml` as the template for `~/docker/modelfoundry/docker-compose.yml`. It builds the local fork from `/home/bailey/model-foundry`, binds ModelFoundry to `127.0.0.1:7352`, and mounts persistent config at `/config`.
 
 Use `deploy/.env.example` as the starting `.env`:
 
@@ -49,10 +49,10 @@ curl -N http://127.0.0.1:7352/v1/chat/completions \
 
 ## Verified Deployment
 
-Verified on Docker-Server on 2026-05-19 from `Codename-11/model-foundry` `master` at `12175a9`.
+Verified on Docker-Server on 2026-05-19 from `Codename-11/model-foundry` `master` after moving the source checkout to the canonical project location.
 
 - Stack path: `~/docker/modelfoundry/`
-- Source checkout: `~/docker/modelfoundry/src`
+- Source checkout: `~/model-foundry`
 - Public binding: `127.0.0.1:7352->7352`
 - ModelFoundry base URL: `http://127.0.0.1:7352/v1`
 - Hermes upstream from the container: `http://host.docker.internal:8648/v1`

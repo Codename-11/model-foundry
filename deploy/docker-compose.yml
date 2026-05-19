@@ -1,7 +1,7 @@
 services:
   modelfoundry:
     build:
-      context: ./src
+      context: /home/bailey/model-foundry
     container_name: modelfoundry
     restart: unless-stopped
     user: "${MODELFOUNDRY_UID:-1000}:${MODELFOUNDRY_GID:-1000}"
