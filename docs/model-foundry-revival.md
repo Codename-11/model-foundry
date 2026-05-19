@@ -72,15 +72,15 @@ Branch `revive/hermes-proxy` is based on upstream `ellipticmarketing/modelrelay/
 
 ## Risks and Known Gaps
 
-- The preset intentionally uses the requested/public local default `http://127.0.0.1:8645/v1`, but Docker-Server's live Hermes OAuth Router was on `http://127.0.0.1:8648/v1` during validation. Port 8645 was a Hermes webhook/API service and returned 404 for `/v1/models`.
+- The preset default remains `http://127.0.0.1:8645/v1` for generic local use, but Docker deployments can set `MODELFOUNDRY_HERMES_PROXY_BASE_URL`. Docker-Server's live Hermes OAuth Router was on `http://127.0.0.1:8648/v1` during validation. Port 8645 was a Hermes webhook/API service and returned 404 for `/v1/models`.
 - Local Hermes Proxy advertised `grok-4.3`, `grok-4.20-reasoning`, `gpt-5.4`, `gpt-5.4-mini`, and `gpt-5.3-codex`; it did not advertise `gpt-5.5` during validation. Chat smoke passed with `grok-4.3` and failed with `gpt-5.5`/`gpt-5.4-mini` at HTTP 403.
 - The Vite dashboard migration from the stale fork remains intentionally deferred.
 - ModelFoundry/modelrelay remains a lightweight local router/dashboard. It does not provide the team/key/quota/cost governance expected from a production central gateway.
 
-## Recommendation
+## Docker Deployment Decision
 
-Keep this branch parked as the revived ModelFoundry base and deploy it only as a local lab router after choosing the canonical Hermes Proxy port for Docker-Server. Do not make ModelFoundry the central common endpoint/control plane for all apps. If the goal is a durable internal OpenRouter-style gateway with shared keys, teams, budgets, routing policy, and observability, evaluate LiteLLM as the production endpoint layer and keep ModelFoundry for model discovery, experimentation, and dashboard-style scouting.
+Deploy this branch as a localhost-only Docker service for internal Axiom testing. The Docker image now builds from the fork checkout instead of installing upstream `modelrelay` from npm, and the Docker-Server deployment wires the Hermes Proxy preset to `http://host.docker.internal:8648/v1`.
 
 ## Next Action
 
-Push `revive/hermes-proxy` to `Codename-11/model-foundry`, then decide whether to open a PR or keep the branch as an implementation snapshot. If deploying locally, either run Hermes Proxy on `8645` to match the preset or edit the endpoint to `8648` in the ModelFoundry UI/config.
+Merge `revive/hermes-proxy` into the fork primary branch, deploy from `~/docker/modelfoundry/src`, and keep ModelFoundry bound to `127.0.0.1:7352` until inbound auth, stable alias policy, and prompt/response log redaction are deliberately added.

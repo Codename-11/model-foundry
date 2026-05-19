@@ -2270,6 +2270,19 @@ describe('OpenAI-compatible multi-instance support', () => {
     assert.equal(preset.enabled, false)
   })
 
+  it('builds a Hermes Proxy endpoint preset from MODELFOUNDRY_HERMES_PROXY_BASE_URL', () => {
+    const previous = process.env.MODELFOUNDRY_HERMES_PROXY_BASE_URL
+    process.env.MODELFOUNDRY_HERMES_PROXY_BASE_URL = ' http://host.docker.internal:8648/v1 '
+
+    try {
+      const preset = buildHermesProxyEndpointPreset()
+      assert.equal(preset.baseUrl, 'http://host.docker.internal:8648/v1')
+    } finally {
+      if (previous == null) delete process.env.MODELFOUNDRY_HERMES_PROXY_BASE_URL
+      else process.env.MODELFOUNDRY_HERMES_PROXY_BASE_URL = previous
+    }
+  })
+
   it('upserts the Hermes Proxy preset as a stable OpenAI-compatible endpoint', () => {
     const config = { apiKeys: {}, providers: {} }
     const instanceKey = upsertOpenAICompatibleEndpoint(config, buildHermesProxyEndpointPreset())

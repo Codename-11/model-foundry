@@ -26,6 +26,14 @@ Open **Settings → OpenAI-Compatible endpoints** and click **Add Hermes Proxy**
 
 If your Hermes Proxy listens on a different local port, edit the endpoint's base URL after adding it.
 
+For Docker deployments, the preset also honors `MODELFOUNDRY_HERMES_PROXY_BASE_URL`. Docker-Server uses:
+
+```env
+MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://host.docker.internal:8648/v1
+```
+
+That value points containers at the verified raw Hermes Proxy model endpoint. On Docker-Server, port `8645` responded to `/health` during validation but did not serve `/v1/models`.
+
 ## Add during onboarding
 
 `modelrelay onboard` asks whether to configure the local Hermes Proxy endpoint. If accepted, it writes `openai-compatible:hermes-proxy` with the preset above. It does not start Hermes Proxy for you.
@@ -60,6 +68,12 @@ npm run smoke:hermes-proxy
 ```
 
 The script intentionally prints only status codes, counts, and short model samples. It does not print bearer tokens or full upstream response bodies.
+
+## Docker-Server deployment
+
+The canonical local deployment path is `~/docker/modelfoundry/`, with ModelFoundry exposed at `http://127.0.0.1:7352/v1` and persistent config mounted from `~/docker/modelfoundry/config`.
+
+See [`docs/deployment/docker-server.md`](../deployment/docker-server.md) for the Compose template and smoke-test commands.
 
 ## Security note
 
