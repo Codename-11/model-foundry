@@ -38,6 +38,18 @@ export const MODEL_ID_ALIASES = {
   'qwen3:32b': 'qwen/qwen3-32b',
   'gpt-oss:120b': 'openai/gpt-oss-120b',
   'gpt-oss:20b': 'openai/gpt-oss-20b',
+  'claude-opus-4.7': 'claude-opus-4-7',
+  'claude-sonnet-4.6': 'claude-sonnet-4-6',
+  'claude-opus-4.6': 'claude-opus-4-6',
+  'claude-opus-4.5': 'claude-opus-4-5',
+  'claude-sonnet-4.5': 'claude-sonnet-4-5',
+  'claude-haiku-4.5': 'claude-haiku-4-5',
+  'anthropic/claude-opus-4.7': 'claude-opus-4-7',
+  'anthropic/claude-sonnet-4.6': 'claude-sonnet-4-6',
+  'anthropic/claude-opus-4.6': 'claude-opus-4-6',
+  'anthropic/claude-opus-4.5': 'claude-opus-4-5',
+  'anthropic/claude-sonnet-4.5': 'claude-sonnet-4-5',
+  'anthropic/claude-haiku-4.5': 'claude-haiku-4-5',
   'minimax-m2': 'minimaxai/minimax-m2',
   'minimax-m2.1': 'minimaxai/minimax-m2.1',
   'minimax-m2.5': 'minimax/minimax-m2.5',
@@ -255,6 +267,28 @@ export const sources = {
     "name": "OpenCode Zen",
     "url": "https://opencode.ai/zen/v1/chat/completions",
     "models": []
+  },
+  "openai": {
+    "name": "OpenAI",
+    "url": "https://api.openai.com/v1/chat/completions",
+    "models": [
+      ["gpt-5.5", "GPT-5.5", "400k"],
+      ["gpt-5.4", "GPT-5.4", "400k"],
+      ["gpt-5.4-mini", "GPT-5.4 Mini", "400k"],
+      ["gpt-5.3-codex", "GPT-5.3 Codex", "400k"]
+    ]
+  },
+  "anthropic": {
+    "name": "Anthropic",
+    "url": "https://api.anthropic.com/v1/messages",
+    "models": [
+      ["claude-opus-4-7", "Claude Opus 4.7", "200k"],
+      ["claude-opus-4-6", "Claude Opus 4.6", "200k"],
+      ["claude-sonnet-4-6", "Claude Sonnet 4.6", "200k"],
+      ["claude-opus-4-5", "Claude Opus 4.5", "200k"],
+      ["claude-sonnet-4-5", "Claude Sonnet 4.5", "200k"],
+      ["claude-haiku-4-5", "Claude Haiku 4.5", "200k"]
+    ]
   },
   "openai-compatible": {
     "name": "OpenAI-Compatible",

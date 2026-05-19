@@ -27,7 +27,7 @@ import { normalizeMissingScoreId } from '../lib/score-fetcher.js'
 import { resolveAutostartExecPath, resolveAutostartNodePath } from '../lib/autostart.js'
 import { exportConfigToken, getApiKey, getApiKeyPool, getMaxTurns, getPinningMode, getProviderBaseUrl, getProviderModelId, getProviderPingIntervalMs, hasMultipleKeys, importConfigToken, normalizeConfigShape, isOpenAICompatibleInstanceKey, getBaseProviderKey, getOpenAICompatibleInstanceId, buildOpenAICompatibleInstanceKey, buildHermesProxyEndpointPreset, listOpenAICompatibleEndpoints, upsertOpenAICompatibleEndpoint, removeOpenAICompatibleEndpoint } from '../lib/config.js'
 import { buildNpmInstallInvocation, buildWindowsPostUpdateRestartCommand, getForcedUpdateVersion, getLocalUpdateTarballPath, getLocalUpdateVersion, isRunningFromSource, shouldStopAutostartBeforeUpdate } from '../lib/update.js'
-import { buildKiroRequestPayload, buildKiroSocialLoginUrl, buildOpencodeHeaders, buildOpencodeProjectId, buildProviderRequestBody, buildProviderRequestHeaders, exchangeKiroSocialAuthFlow, exchangeKiroSocialCode, extractInboundApiCredential, extractKiroEmailFromAccessToken, extractOllamaModelRecords, extractOpenAICompatibleModelRecords, buildOpenAICompatibleModelsListUrl, getAccountStatus, getConfiguredInboundApiKeys, getKiroRefreshToken, hasKiroAuthConfigured, isInboundApiRequestAuthorized, getPinnedModelCandidate, getPinnedModelMatches, isProviderAuthOptional, isProviderBearerAuthEnabled, parseInboundApiKeys, parseKiroEventFrame, pollKiroBuilderIdToken, providerWantsBearerAuth, resolveKiroOAuthAccessToken, shouldRetryOptionalProviderWithBearer, startKiroBuilderIdDeviceAuth, startKiroSocialAuthFlow, toOllamaModelMeta, toOpenAICompatibleDiscoveredModelMeta, toOpenCodeModelMeta, toOpenRouterModelMeta, toKiloCodeModelMeta, transformKiroResponse } from '../lib/server.js'
+import { buildAnthropicRequestPayload, buildKiroRequestPayload, buildKiroSocialLoginUrl, buildOpencodeHeaders, buildOpencodeProjectId, buildProviderRequestBody, buildProviderRequestHeaders, exchangeKiroSocialAuthFlow, exchangeKiroSocialCode, extractInboundApiCredential, extractKiroEmailFromAccessToken, extractOllamaModelRecords, extractOpenAICompatibleModelRecords, buildOpenAICompatibleModelsListUrl, getAccountStatus, getConfiguredInboundApiKeys, getKiroRefreshToken, hasKiroAuthConfigured, isInboundApiRequestAuthorized, getPinnedModelCandidate, getPinnedModelMatches, isProviderAuthOptional, isProviderBearerAuthEnabled, parseInboundApiKeys, parseKiroEventFrame, pollKiroBuilderIdToken, providerWantsBearerAuth, resolveKiroOAuthAccessToken, shouldRetryOptionalProviderWithBearer, startKiroBuilderIdDeviceAuth, startKiroSocialAuthFlow, toOllamaModelMeta, toOpenAICompatibleDiscoveredModelMeta, toOpenCodeModelMeta, toOpenRouterModelMeta, toKiloCodeModelMeta, transformAnthropicResponse, transformKiroResponse } from '../lib/server.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
 
@@ -194,6 +194,15 @@ describe('sources data integrity', () => {
     assert.ok(Array.isArray(sources.opencode.models))
   })
 
+  it('includes direct OpenAI and Anthropic providers', () => {
+    assert.ok(sources.openai)
+    assert.equal(sources.openai.name, 'OpenAI')
+    assert.ok(sources.openai.models.some(([id]) => id === 'gpt-5.5'))
+    assert.ok(sources.anthropic)
+    assert.equal(sources.anthropic.name, 'Anthropic')
+    assert.ok(sources.anthropic.models.some(([id]) => id === 'claude-sonnet-4-6'))
+  })
+
   it('includes Kiro provider', () => {
     assert.ok(sources.kiro)
     assert.equal(sources.kiro.name, 'Kiro')
@@ -318,6 +327,13 @@ describe('provider api key resolution', () => {
       if (original == null) delete process.env.KILOCODE_API_KEY
       else process.env.KILOCODE_API_KEY = original
     }
+  })
+
+  it('supports direct OpenAI and Anthropic provider env var overrides', () => {
+    withEnv({ OPENAI_API_KEY: 'openai-env-key', ANTHROPIC_API_KEY: 'anthropic-env-key' }, () => {
+      assert.equal(getApiKey({ apiKeys: {} }, 'openai'), 'openai-env-key')
+      assert.equal(getApiKey({ apiKeys: {} }, 'anthropic'), 'anthropic-env-key')
+    })
   })
 
   it('supports OpenAI-compatible provider env vars for key, base URL, and model', () => {
@@ -815,7 +831,7 @@ describe('provider api key resolution', () => {
     assert.equal(payload.inferenceConfig.temperature, 0.4)
   })
 
-  it('routes provider request body translation through Kiro only', () => {
+  it('routes provider request body translation through Kiro and Anthropic only', () => {
     const kiroBody = buildProviderRequestBody('kiro', {
       model: 'claude-haiku-4.5',
       messages: [{ role: 'user', content: 'Hello there' }],
@@ -824,8 +840,31 @@ describe('provider api key resolution', () => {
     assert.ok(kiroBody.conversationState)
     assert.equal(kiroBody.model, undefined)
 
+    const anthropicBody = buildProviderRequestBody('anthropic', {
+      model: 'claude-sonnet-4-6',
+      messages: [
+        { role: 'system', content: 'Be concise.' },
+        { role: 'user', content: 'Hello' },
+      ],
+      max_tokens: 12,
+    }, 'claude-sonnet-4-6')
+    assert.equal(anthropicBody.model, 'claude-sonnet-4-6')
+    assert.equal(anthropicBody.system, 'Be concise.')
+    assert.equal(anthropicBody.messages[0].role, 'user')
+    assert.equal(anthropicBody.messages[0].content[0].text, 'Hello')
+    assert.equal(anthropicBody.max_tokens, 12)
+
     const passthrough = { model: 'gpt-4o-mini', messages: [{ role: 'user', content: 'Hello' }] }
     assert.equal(buildProviderRequestBody('openrouter', passthrough, 'gpt-4o-mini'), passthrough)
+  })
+
+  it('builds Anthropic request payloads with tool schemas', () => {
+    const payload = buildAnthropicRequestPayload({
+      messages: [{ role: 'user', content: 'Use a tool.' }],
+      tools: [{ type: 'function', function: { name: 'lookup', description: 'Lookup', parameters: { type: 'object', properties: { q: { type: 'string' } } } } }],
+    }, 'claude-sonnet-4-6')
+    assert.equal(payload.tools[0].name, 'lookup')
+    assert.equal(payload.tools[0].input_schema.properties.q.type, 'string')
   })
 
   it('parses Kiro AWS EventStream frames', () => {
@@ -903,6 +942,34 @@ describe('provider api key resolution', () => {
     assert.equal(tc.id, toolId)
     assert.equal(tc.function.name, 'exec')
     assert.equal(tc.function.arguments, '{"command": "echo hi"}')
+  })
+
+  it('transforms Anthropic JSON responses into OpenAI JSON responses', async () => {
+    const response = new Response(JSON.stringify({
+      id: 'msg_123',
+      type: 'message',
+      role: 'assistant',
+      model: 'claude-sonnet-4-6',
+      content: [{ type: 'text', text: 'Hello there' }],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 7, output_tokens: 2 },
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+
+    const transformed = await transformAnthropicResponse(response, 'claude-sonnet-4-6', false)
+    const data = JSON.parse(await transformed.text())
+
+    assert.equal(transformed.headers.get('content-type'), 'application/json')
+    assert.equal(data.choices[0].message.role, 'assistant')
+    assert.equal(data.choices[0].message.content, 'Hello there')
+    assert.equal(data.usage.prompt_tokens, 7)
+    assert.equal(data.usage.completion_tokens, 2)
+  })
+
+  it('uses x-api-key auth headers for Anthropic direct provider', () => {
+    const headers = buildProviderRequestHeaders('anthropic', { apiKey: 'anthropic-key' })
+    assert.equal(headers.Authorization, undefined)
+    assert.equal(headers['x-api-key'], 'anthropic-key')
+    assert.equal(headers['anthropic-version'], '2023-06-01')
   })
 
   it('does not add Kiro SDK headers for non-Kiro providers', () => {
