@@ -355,13 +355,18 @@ export const sources = {
     ]
   },
   "googleai": {
-    "name": "Google AI",
+    "name": "Google AI (Gemma)",
     "url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
     "models": [
       ["gemma-3-27b-it", "Gemma 3 27B", "128k"],
       ["gemma-3-12b-it", "Gemma 3 12B", "128k"],
       ["gemma-3-4b-it", "Gemma 3 4B", "128k"]
     ]
+  },
+  "gemini": {
+    "name": "Google Gemini",
+    "url": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "models": []
   }
 }
 

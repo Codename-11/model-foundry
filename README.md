@@ -1,45 +1,59 @@
 # ModelFoundry
 
-ModelFoundry is an OpenAI-compatible model gateway for consolidating many model backends behind one local endpoint. It started as a fork of ModelRelay, but is now moving as its own product direction: shared provider endpoint, routing policy, health telemetry, request logs, and optional Hermes Proxy access without baking Hermes or Axiom-specific assumptions into downstream apps.
+ModelFoundry is Axiom-Labs' OpenAI-compatible optional model router, dashboard, and comparison layer for OpenClaw, OpenCode, and adjacent local AI workflows.
+It combines benchmark-informed model quality with live provider health, then routes requests through a single local endpoint without forcing you to replace your primary paid model stack.
 
-> Provenance: ModelFoundry derives from [`ellipticmarketing/modelrelay`](https://github.com/ellipticmarketing/modelrelay). See [`ACKNOWLEDGEMENTS.md`](ACKNOWLEDGEMENTS.md). Upstream PRs are now treated as inspiration/cherry-pick candidates, not an automatic product track.
+<div align="center">
+  <img src="docs/assets/dashboard.png" alt="ModelFoundry Dashboard" width="100%">
+</div>
 
-## What it is
+## Why it exists
 
-- **OpenAI-compatible API**: expose `/v1/models` and `/v1/chat/completions` for tools that accept a standard OpenAI-style base URL.
-- **Provider aggregation**: route across configured public providers, local providers, and arbitrary OpenAI-compatible upstreams.
-- **Dynamic discovery**: custom OpenAI-compatible endpoints can be discovered via `/v1/models`.
-- **Health-aware routing**: benchmark latency/availability and route `auto-fastest` to a currently healthy candidate.
-- **Dashboard**: inspect live telemetry, providers, account status, request logs, settings, setup snippets, and chat testing.
-- **Hermes Proxy preset**: add a local Hermes Proxy endpoint as a normal OpenAI-compatible upstream. This is optional UX sugar, not a bespoke Hermes-only transport.
-- **Deployment-friendly**: Docker source build, inbound `/v1` API-key guardrails, and persistent config under `~/.model-foundry.json` with a legacy mirror at `~/.modelrelay.json`.
+- **One local endpoint** for many providers
+- **OpenAI-compatible API** for existing tools and scripts
+- **Automatic routing** based on quality + latency + uptime
+- **Live dashboard and comparison layer** for informed model decisions
+- **Optional provider lane** for OpenClaw and OpenCode instead of a hard stack replacement
 
-## Install from source
+## Product position
+
+ModelFoundry is best treated as:
+
+- an **optional provider lane**
+- a **router**
+- a **dashboard**
+- a **comparison layer**
+
+It is not meant to replace your main paid stack by default.
+
+## Quick start
+
+### Install with npm
 
 ```bash
-git clone https://github.com/Codename-11/model-foundry.git
-cd model-foundry
-npm install
-npm start
+npm install -g model-foundry
+model-foundry
 ```
 
 Then open:
 
-```text
-http://localhost:7352/
+- Dashboard: `http://localhost:7352/`
+- API base URL: `http://127.0.0.1:7352/v1`
+- API key: any string
+- Default routed model: `auto-fastest`
+
+### Run with Docker
+
+```bash
+mkdir model-foundry
+cd model-foundry
+curl -fsSL -o Dockerfile https://raw.githubusercontent.com/Codename-11/model-foundry/master/Dockerfile
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/Codename-11/model-foundry/master/docker-compose.yml
+
+docker compose up -d --build
 ```
 
-Router endpoint:
-
-```text
-Base URL: http://127.0.0.1:7352/v1
-API key: any string unless inbound API auth is configured
-Model: auto-fastest
-```
-
-## CLI
-
-Primary commands use `model-foundry`. `modelfoundry` and `modelrelay` remain compatibility aliases while older configs/scripts migrate.
+## Core CLI
 
 ```bash
 model-foundry [--port <number>] [--log] [--ban <model1,model2>]
@@ -49,81 +63,116 @@ model-foundry start --autostart
 model-foundry uninstall --autostart
 model-foundry status --autostart
 model-foundry update
+model-foundry refresh-scores
 model-foundry autoupdate [--enable|--disable|--status] [--interval <hours>]
-model-foundry autostart [--install|--start|--uninstall|--status]
 model-foundry config export
 model-foundry config import <token>
-model-foundry config set-keys <provider> <key1,key2,...>
-model-foundry config add-key <provider> <key>
-model-foundry config remove-key <provider> <key|index>
-model-foundry config set-maxturns <provider> <number>
 ```
 
-## Docker
-
-This repository builds from source so local ModelFoundry changes are present in the container:
+Legacy binary alias:
 
 ```bash
-docker build -t model-foundry .
-docker run --rm -p 7352:7352 \
-  -v "$HOME/.model-foundry:/home/node" \
-  model-foundry
+modelrelay
 ```
 
-A Docker-Server compose deployment lives outside this repo under `~/docker/modelfoundry/`.
+## Integrations
 
-## Hermes Proxy as a provider
+Run onboarding for guided setup:
 
-If `hermes proxy` is running, add it from the dashboard or with onboarding. ModelFoundry stores it as a normal OpenAI-compatible endpoint named `openai-compatible:hermes-proxy`.
-
-Defaults:
-
-```text
-Base URL: http://127.0.0.1:8645/v1
-Model fallback: gpt-5.5
-Discovery: on
-Auth: bearer-style by default
+```bash
+model-foundry onboard
 ```
 
-Docker-Server sets `MODELFOUNDRY_HERMES_PROXY_BASE_URL` to the host-accessible Hermes Proxy route.
+The quick-start path now recommends `OpenRouter` as the default first provider, with `Groq` as the fast single-provider option and `OpenAI-Compatible` as the bring-your-own-upstream path.
 
-## OpenAI-compatible endpoint example
+Manual docs:
 
-Any app/tool that accepts the standard triple can point here:
+- [OpenClaw integration](docs/integrations/openclaw.md)
+- [OpenCode integration](docs/integrations/opencode.md)
+- [Frontier provider catalog](docs/integrations/frontier.md)
 
-```json
-{
-  "baseUrl": "http://127.0.0.1:7352/v1",
-  "apiKey": "local-key",
-  "model": "auto-fastest"
-}
-```
+## Docs
 
-For tools with provider/model namespaces, use a ModelFoundry provider name and the `auto-fastest` model, for example `model-foundry/auto-fastest`.
+- [Documentation index](docs/README.md)
+- [Architecture overview](docs/architecture/overview.md)
+- [Routing, scoring, and evaluation](docs/architecture/routing-and-scoring.md)
+- [Configuration and operations](docs/reference/configuration.md)
+- [CLI reference](docs/reference/cli.md)
+- [Roadmap](docs/project/roadmap.md)
+- [Code Arena score reference](docs/reference/code-arena-scores.md)
 
-## Config and logs
+## OpenAI-compatible endpoints
 
-- Canonical config: `~/.model-foundry.json`
+### `POST /v1/chat/completions`
+
+Use `model: "auto-fastest"` to let the router choose the current best backend.
+You can also target grouped model IDs such as `minimax-m2.5`, `kimi-k2.5`, or `glm4.7` and let ModelFoundry choose the best provider for that model family.
+
+### `GET /v1/models`
+
+Returns the router-exposed model list, including grouped slugs and `auto-fastest`.
+
+## Config basics
+
+- Canonical config path: `~/.model-foundry.json`
 - Legacy compatibility mirror: `~/.modelrelay.json`
-- Request log file: `~/.modelrelay-logs.json` for now, retained for compatibility
-- Inbound API auth env: `MODELFOUNDRY_INBOUND_API_KEYS`
-- Hermes Proxy preset env: `MODELFOUNDRY_HERMES_PROXY_BASE_URL`
-- Local update test envs still accept legacy `MODELRELAY_*` names until the updater compatibility window is removed.
+- Request logging is off by default; enable with `--log`
+- Config transfer is supported with `model-foundry config export` / `import`
+
+Supported API key env vars include:
+
+- `NVIDIA_API_KEY`
+- `GROQ_API_KEY`
+- `CEREBRAS_API_KEY`
+- `OPENROUTER_API_KEY`
+- `OPENCODE_API_KEY`
+- `OPENAI_COMPATIBLE_API_KEY`
+- `ANTHROPIC_API_KEY`
+- `OPENAI_API_KEY`
+- `CODESTRAL_API_KEY`
+- `SCALEWAY_API_KEY`
+- `QWEN_CODE_API_KEY` or `DASHSCOPE_API_KEY`
+- `KILOCODE_API_KEY`
+- `GOOGLE_API_KEY`
+
+The frontend can also use the shared frontier catalog endpoint:
+
+- `GET /api/provider-meta`
 
 ## Development
 
-```bash
-npm test
-npm run smoke:hermes-proxy
-```
-
-Before publishing or deployment changes, verify:
+Install deps:
 
 ```bash
-npm test
-git diff --check
+npm install
 ```
 
-## Direction
+Run the backend and Vite frontend together:
 
-ModelFoundry is becoming a lightweight central model gateway/router, not just a free-model scout. Heavier enterprise controls such as teams, billing, quotas, audit exports, and organization-level key governance may eventually belong here or in a compatible upstream gateway tier, but the immediate goal is a clean common endpoint for apps and agent tools.
+```bash
+npm run dev
+```
+
+That gives you:
+
+- Vite frontend: `http://localhost:5173/`
+- Router/backend API: `http://127.0.0.1:7352/`
+
+Build the production frontend bundle:
+
+```bash
+npm run build
+```
+
+Run tests:
+
+```bash
+npm test
+```
+
+Production/server mode serves the built `dist/` app automatically when it exists.
+
+## Project
+
+- GitHub: https://github.com/Codename-11/model-foundry
+- Organization: Axiom-Labs

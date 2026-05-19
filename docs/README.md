@@ -11,6 +11,7 @@ This repo keeps the root README short and pushes the deeper material here.
 
 - [OpenClaw](integrations/openclaw.md)
 - [OpenCode](integrations/opencode.md)
+- [Frontier provider catalog](integrations/frontier.md)
 
 ## Reference
 

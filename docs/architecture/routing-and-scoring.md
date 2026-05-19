@@ -13,11 +13,25 @@ ModelFoundry combines both so `auto-fastest` behaves like "best practical coding
 
 ## Inputs used in routing
 
-### 1. Intelligence score
+### 1. Benchmark score
 
 Model quality is sourced from `scores.js` and resolved via canonical model IDs in `sources.js`.
 
 The score is benchmark-derived and acts as the quality anchor for each model family.
+
+Today, that means a repo-maintained normalized reference score.
+The dashboard now labels this as `Benchmark Score` to make it clearer that the number is benchmark-derived, not a live runtime measurement.
+
+The broader benchmark families we want to surface more directly over time include:
+
+- SWE-bench Verified
+- LiveCodeBench
+- LiveBench
+- MMLU-Pro
+- GPQA
+- LM Arena
+
+The dashboard now also has room for source-specific benchmark rows where structured data is available, rather than forcing everything into a single composite number.
 
 ### 2. Recent latency
 

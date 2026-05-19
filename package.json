@@ -1,7 +1,7 @@
 {
   "name": "model-foundry",
-  "version": "1.17.1",
-  "description": "OpenAI-compatible model gateway and local router for consolidating provider endpoints, routing policy, health telemetry, and Hermes Proxy access behind one common API.",
+  "version": "0.1.0",
+  "description": "OpenAI-compatible optional model router, dashboard, and comparison layer for OpenClaw and OpenCode.",
   "keywords": [
     "nvidia",
     "nim",
@@ -32,7 +32,7 @@
     "url": "git+https://github.com/Codename-11/model-foundry.git"
   },
   "license": "MIT",
-  "author": "Codename-11",
+  "author": "Axiom-Labs",
   "type": "module",
   "main": "bin/modelrelay.js",
   "bin": {
@@ -43,6 +43,7 @@
   "files": [
     "bin/",
     "lib/",
+    "dist/",
     "public/",
     "index.html",
     "src/",
@@ -54,6 +55,11 @@
   ],
   "scripts": {
     "start": "node bin/modelrelay.js",
+    "dev": "concurrently -n server,client -c cyan,magenta \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "node bin/modelrelay.js",
+    "dev:client": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "node --test test/test.js",
     "smoke:hermes-proxy": "node scripts/smoke-hermes-proxy.mjs"
   },
@@ -71,5 +77,9 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "vite": "^7.1.5"
   }
 }
