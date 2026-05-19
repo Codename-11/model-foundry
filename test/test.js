@@ -2279,15 +2279,18 @@ describe('package and entrypoint sanity', () => {
     assert.ok(scriptContent.includes('/chat/completions'))
   })
 
-  it('ships the complete browser UI shell in npm and Docker builds', () => {
+  it('ships the complete browser UI shell and shared benchmark data in npm and Docker builds', () => {
     assert.ok(pkg.files.includes('index.html'))
     assert.ok(pkg.files.includes('src/'))
+    assert.ok(pkg.files.includes('benchmark-data.js'))
     assert.ok(existsSync(join(ROOT, 'index.html')))
     assert.ok(existsSync(join(ROOT, 'src', 'main.js')))
+    assert.ok(existsSync(join(ROOT, 'benchmark-data.js')))
 
     const dockerfile = readFileSync(join(ROOT, 'Dockerfile'), 'utf8')
     assert.ok(dockerfile.includes('COPY index.html ./'))
     assert.ok(dockerfile.includes('COPY src/ ./src/'))
+    assert.ok(dockerfile.includes('benchmark-data.js'))
   })
 })
 

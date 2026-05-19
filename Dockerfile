@@ -12,7 +12,7 @@ COPY public/ ./public/
 COPY index.html ./
 COPY src/ ./src/
 COPY scripts/ ./scripts/
-COPY sources.js scores.js README.md LICENSE ./
+COPY sources.js scores.js benchmark-data.js README.md LICENSE ./
 
 ENV NODE_ENV=production
 ENV HOME=/config

@@ -50,6 +50,7 @@
     "scripts/",
     "sources.js",
     "scores.js",
+    "benchmark-data.js",
     "README.md",
     "LICENSE"
   ],
