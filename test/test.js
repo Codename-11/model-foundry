@@ -2288,8 +2288,11 @@ describe('package and entrypoint sanity', () => {
     assert.ok(existsSync(join(ROOT, 'benchmark-data.js')))
 
     const dockerfile = readFileSync(join(ROOT, 'Dockerfile'), 'utf8')
+    assert.ok(dockerfile.includes('FROM node:24-alpine AS build'))
     assert.ok(dockerfile.includes('COPY index.html ./'))
     assert.ok(dockerfile.includes('COPY src/ ./src/'))
+    assert.ok(dockerfile.includes('RUN npm run build'))
+    assert.match(dockerfile, /COPY --from=build\s+\/app\/dist\s+\.\/dist/)
     assert.ok(dockerfile.includes('benchmark-data.js'))
   })
 })
