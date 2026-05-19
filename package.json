@@ -42,6 +42,8 @@
     "bin/",
     "lib/",
     "public/",
+    "index.html",
+    "src/",
     "scripts/",
     "sources.js",
     "scores.js",

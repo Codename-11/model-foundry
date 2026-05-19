@@ -9,6 +9,8 @@ RUN npm ci --omit=dev
 COPY bin/ ./bin/
 COPY lib/ ./lib/
 COPY public/ ./public/
+COPY index.html ./
+COPY src/ ./src/
 COPY scripts/ ./scripts/
 COPY sources.js scores.js README.md LICENSE ./
 

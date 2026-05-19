@@ -1926,6 +1926,17 @@ describe('package and entrypoint sanity', () => {
     assert.ok(scriptContent.includes('HERMES_PROXY_BASE_URL'))
     assert.ok(scriptContent.includes('/chat/completions'))
   })
+
+  it('ships the browser UI shell in npm and Docker builds', () => {
+    assert.ok(pkg.files.includes('index.html'))
+    assert.ok(pkg.files.includes('src/'))
+    assert.ok(existsSync(join(ROOT, 'index.html')))
+    assert.ok(existsSync(join(ROOT, 'src', 'main.js')))
+
+    const dockerfile = readFileSync(join(ROOT, 'Dockerfile'), 'utf8')
+    assert.ok(dockerfile.includes('COPY index.html ./'))
+    assert.ok(dockerfile.includes('COPY src/ ./src/'))
+  })
 })
 
 describe('multi-account round-robin', () => {
