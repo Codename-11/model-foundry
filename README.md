@@ -262,6 +262,14 @@ modelrelay supports configuring multiple OpenAI-compatible upstream endpoints (v
 - The legacy env vars `OPENAI_COMPATIBLE_API_KEY` / `OPENAI_COMPATIBLE_BASE_URL` / `OPENAI_COMPATIBLE_MODEL` continue to work and apply to the `:default` instance.
 - Endpoints can also be managed via the API: `POST /api/openai-compatible/endpoints` (body: `{name, baseUrl, modelId, apiKey?}`) and `DELETE /api/openai-compatible/endpoints/<id>`.
 
+#### Hermes Proxy preset
+
+The ModelFoundry fork adds an optional **Add Hermes Proxy** preset for local Hermes subscription proxy users. It creates `openai-compatible:hermes-proxy` with `http://127.0.0.1:8645/v1`, placeholder API key `unused`, model fallback `gpt-5.5`, and `/v1/models` discovery enabled.
+
+This is still a generic OpenAI-compatible endpoint. Hermes Proxy is not required for public/general deployments, and it is not the same thing as the Hermes API Server: Hermes Proxy is a raw model endpoint, while the API Server runs the full agent backend with tools, memory, skills, and session state.
+
+Do not expose Hermes Proxy on LAN/public interfaces without real network/auth controls. See [`docs/integrations/hermes-proxy.md`](docs/integrations/hermes-proxy.md) for setup and smoke-test commands.
+
 ### Config migration (CLI + Web UI)
 
 - In the Web UI, open `Settings` -> `Configuration Transfer` to export/copy/import a token.

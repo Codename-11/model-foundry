@@ -42,6 +42,7 @@
     "bin/",
     "lib/",
     "public/",
+    "scripts/",
     "sources.js",
     "scores.js",
     "README.md",
@@ -49,7 +50,8 @@
   ],
   "scripts": {
     "start": "node bin/modelrelay.js",
-    "test": "node --test test/test.js"
+    "test": "node --test test/test.js",
+    "smoke:hermes-proxy": "node scripts/smoke-hermes-proxy.mjs"
   },
   "dependencies": {
     "chalk": "^5.4.1",

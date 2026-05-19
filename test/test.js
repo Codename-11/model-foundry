@@ -1881,6 +1881,16 @@ describe('package and entrypoint sanity', () => {
     assert.ok(binContent.includes("from '../lib/utils.js'"))
     assert.ok(binContent.includes("from '../lib/onboard.js'"))
   })
+
+  it('includes a Hermes Proxy smoke test script in package metadata', () => {
+    assert.equal(pkg.scripts['smoke:hermes-proxy'], 'node scripts/smoke-hermes-proxy.mjs')
+    assert.ok(pkg.files.includes('scripts/'))
+    const scriptPath = join(ROOT, 'scripts/smoke-hermes-proxy.mjs')
+    assert.ok(existsSync(scriptPath))
+    const scriptContent = readFileSync(scriptPath, 'utf8')
+    assert.ok(scriptContent.includes('HERMES_PROXY_BASE_URL'))
+    assert.ok(scriptContent.includes('/chat/completions'))
+  })
 })
 
 describe('multi-account round-robin', () => {

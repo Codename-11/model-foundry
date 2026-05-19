@@ -46,3 +46,13 @@ Use upstream's existing `openai-compatible:<id>` multi-endpoint support and `/v1
 ## Validation Log
 
 - Baseline upstream tests: `npm test -- --test-reporter=spec` — passed, 178 tests.
+- Preset/config tests after implementation: `npm test -- --test-reporter=spec` — passed, 181 tests.
+- Server/UI/onboarding tests after implementation: `npm test -- --test-reporter=spec` — passed, 182 tests.
+- Smoke script/package tests: `npm test -- --test-reporter=spec` — passed, 183 tests.
+- Syntax checks: `node --check lib/server.js`, `node --check lib/onboard.js`, and `node --check scripts/smoke-hermes-proxy.mjs` — passed.
+- Local port check on Docker-Server:
+  - `http://127.0.0.1:8645/health` returned `{"status":"ok","platform":"webhook"}`, but `http://127.0.0.1:8645/v1/models` returned HTTP 404. Port 8645 was therefore not the local Hermes Proxy model endpoint during validation.
+  - `http://127.0.0.1:8648/health` returned Hermes OAuth Router health with authentication ready, and `http://127.0.0.1:8648/v1/models` returned 5 models.
+- Smoke script without chat: `HERMES_PROXY_BASE_URL=http://127.0.0.1:8648/v1 node scripts/smoke-hermes-proxy.mjs` — passed; discovered `grok-4.3`, `grok-4.20-reasoning`, `gpt-5.4`, `gpt-5.4-mini`, and `gpt-5.3-codex`.
+- Chat smoke with requested `gpt-5.5`: `HERMES_PROXY_BASE_URL=http://127.0.0.1:8648/v1 HERMES_PROXY_SMOKE_CHAT=1 HERMES_PROXY_SMOKE_MODEL=gpt-5.5 node scripts/smoke-hermes-proxy.mjs` — failed with HTTP 403 because the local proxy did not advertise `gpt-5.5` during validation.
+- Chat smoke with discovered model: `HERMES_PROXY_BASE_URL=http://127.0.0.1:8648/v1 HERMES_PROXY_SMOKE_CHAT=1 HERMES_PROXY_SMOKE_MODEL=grok-4.3 node scripts/smoke-hermes-proxy.mjs` — passed with HTTP 200 and response `ok`.
