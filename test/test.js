@@ -25,7 +25,7 @@ import {
 import { buildOpenClawProviderConfig } from '../lib/onboard.js'
 import { normalizeMissingScoreId } from '../lib/score-fetcher.js'
 import { resolveAutostartExecPath, resolveAutostartNodePath } from '../lib/autostart.js'
-import { exportConfigToken, getApiKey, getApiKeyPool, getMaxTurns, getPinningMode, getProviderBaseUrl, getProviderModelId, getProviderPingIntervalMs, hasMultipleKeys, importConfigToken, normalizeConfigShape, isOpenAICompatibleInstanceKey, getBaseProviderKey, getOpenAICompatibleInstanceId, buildOpenAICompatibleInstanceKey, listOpenAICompatibleEndpoints, upsertOpenAICompatibleEndpoint, removeOpenAICompatibleEndpoint } from '../lib/config.js'
+import { exportConfigToken, getApiKey, getApiKeyPool, getMaxTurns, getPinningMode, getProviderBaseUrl, getProviderModelId, getProviderPingIntervalMs, hasMultipleKeys, importConfigToken, normalizeConfigShape, isOpenAICompatibleInstanceKey, getBaseProviderKey, getOpenAICompatibleInstanceId, buildOpenAICompatibleInstanceKey, buildHermesProxyEndpointPreset, listOpenAICompatibleEndpoints, upsertOpenAICompatibleEndpoint, removeOpenAICompatibleEndpoint } from '../lib/config.js'
 import { buildNpmInstallInvocation, buildWindowsPostUpdateRestartCommand, getForcedUpdateVersion, getLocalUpdateTarballPath, getLocalUpdateVersion, isRunningFromSource, shouldStopAutostartBeforeUpdate } from '../lib/update.js'
 import { buildKiroRequestPayload, buildKiroSocialLoginUrl, buildOpencodeHeaders, buildOpencodeProjectId, buildProviderRequestBody, buildProviderRequestHeaders, exchangeKiroSocialAuthFlow, exchangeKiroSocialCode, extractKiroEmailFromAccessToken, extractOllamaModelRecords, extractOpenAICompatibleModelRecords, buildOpenAICompatibleModelsListUrl, getAccountStatus, getKiroRefreshToken, hasKiroAuthConfigured, getPinnedModelCandidate, getPinnedModelMatches, isProviderAuthOptional, isProviderBearerAuthEnabled, parseKiroEventFrame, pollKiroBuilderIdToken, providerWantsBearerAuth, resolveKiroOAuthAccessToken, shouldRetryOptionalProviderWithBearer, startKiroBuilderIdDeviceAuth, startKiroSocialAuthFlow, toOllamaModelMeta, toOpenAICompatibleDiscoveredModelMeta, toOpenCodeModelMeta, toOpenRouterModelMeta, toKiloCodeModelMeta, transformKiroResponse } from '../lib/server.js'
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -2222,6 +2222,50 @@ describe('OpenAI-compatible multi-instance support', () => {
 
     upsertOpenAICompatibleEndpoint(config, { instanceKey: 'openai-compatible:one', discoverModels: true })
     assert.equal('discoverModels' in config.providers['openai-compatible:one'], false)
+  })
+
+  it('builds a Hermes Proxy endpoint preset with generic OpenAI-compatible defaults', () => {
+    const preset = buildHermesProxyEndpointPreset()
+
+    assert.deepEqual(preset, {
+      id: 'hermes-proxy',
+      name: 'Hermes Proxy',
+      baseUrl: 'http://127.0.0.1:8645/v1',
+      modelId: 'gpt-5.5',
+      apiKey: 'unused',
+      enabled: true,
+      discoverModels: true,
+    })
+  })
+
+  it('builds a Hermes Proxy endpoint preset with overrides', () => {
+    const preset = buildHermesProxyEndpointPreset({ modelId: 'grok-4.3', enabled: false })
+
+    assert.equal(preset.id, 'hermes-proxy')
+    assert.equal(preset.name, 'Hermes Proxy')
+    assert.equal(preset.modelId, 'grok-4.3')
+    assert.equal(preset.enabled, false)
+  })
+
+  it('upserts the Hermes Proxy preset as a stable OpenAI-compatible endpoint', () => {
+    const config = { apiKeys: {}, providers: {} }
+    const instanceKey = upsertOpenAICompatibleEndpoint(config, buildHermesProxyEndpointPreset())
+
+    assert.equal(instanceKey, 'openai-compatible:hermes-proxy')
+    assert.equal(config.apiKeys[instanceKey], 'unused')
+    assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
+    assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8645/v1')
+    assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
+    assert.equal('discoverModels' in config.providers[instanceKey], false)
+
+    const [endpoint] = listOpenAICompatibleEndpoints(config)
+    assert.equal(endpoint.instanceKey, 'openai-compatible:hermes-proxy')
+    assert.equal(endpoint.id, 'hermes-proxy')
+    assert.equal(endpoint.name, 'Hermes Proxy')
+    assert.equal(endpoint.baseUrl, 'http://127.0.0.1:8645/v1')
+    assert.equal(endpoint.modelId, 'gpt-5.5')
+    assert.equal(endpoint.apiKey, 'unused')
+    assert.equal(endpoint.discoverModels, true)
   })
 
   it('config export/import preserves multi-instance shape', () => {
