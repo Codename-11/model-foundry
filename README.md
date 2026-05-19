@@ -1,6 +1,6 @@
 # ModelFoundry
 
-ModelFoundry is Axiom-Labs' OpenAI-compatible optional model router, dashboard, and comparison layer for OpenClaw, OpenCode, and adjacent local AI workflows.
+ModelFoundry is Axiom-Labs' OpenAI-compatible optional model gateway, router, dashboard, and comparison layer for Hermes Agent, OpenCode, and adjacent local AI workflows.
 It combines benchmark-informed model quality with live provider health, then routes requests through a single local endpoint without forcing you to replace your primary paid model stack.
 
 <div align="center">
@@ -13,7 +13,7 @@ It combines benchmark-informed model quality with live provider health, then rou
 - **OpenAI-compatible API** for existing tools and scripts
 - **Automatic routing** based on quality + latency + uptime
 - **Live dashboard and comparison layer** for informed model decisions
-- **Optional provider lane** for OpenClaw and OpenCode instead of a hard stack replacement
+- **Optional provider lane** for Hermes Agent and OpenCode instead of a hard stack replacement
 
 ## Product position
 
@@ -87,8 +87,9 @@ The quick-start path now recommends `OpenRouter` as the default first provider, 
 
 Manual docs:
 
-- [OpenClaw integration](docs/integrations/openclaw.md)
+- [Hermes Agent integration](docs/integrations/hermes-agent.md)
 - [OpenCode integration](docs/integrations/opencode.md)
+- [Hermes Proxy integration](docs/integrations/hermes-proxy.md)
 - [Frontier provider catalog](docs/integrations/frontier.md)
 
 ## Docs

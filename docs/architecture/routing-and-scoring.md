@@ -94,7 +94,7 @@ Instead of locking to one model family, it ranks all eligible candidates and pic
 
 That makes it useful for:
 
-- OpenClaw optional model lanes
+- Hermes Agent optional model lanes
 - OpenCode router provider setup
 - local scripts that just want a sane default
 

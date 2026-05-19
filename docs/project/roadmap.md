@@ -7,7 +7,7 @@ This is a documentation roadmap, not a promise registry carved into stone.
 - OpenAI-compatible local routing
 - dashboard for provider/model visibility
 - benchmark-informed model quality scoring
-- OpenClaw and OpenCode onboarding support
+- Hermes Agent, Hermes Proxy, and OpenCode onboarding support
 - config transfer and background service support
 
 ## Near-term docs/product clarity goals
@@ -42,7 +42,7 @@ Potential improvements:
 
 Potential improvements:
 
-- richer OpenClaw examples for optional routed lanes
+- richer Hermes Agent profile examples for optional routed lanes
 - more presets for local AI toolchains using OpenAI-compatible clients
 - dedicated frontier-family settings sections for Claude, OpenAI GPT/Codex, and Gemini
 - clearer migration notes for older `modelrelay` installs

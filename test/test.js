@@ -24,10 +24,10 @@ import {
   selectNextApiKeyFromPool,
   VERDICT_ORDER,
 } from '../lib/utils.js'
-import { applyHermesProxyEndpointPreset, buildOpenClawProviderConfig } from '../lib/onboard.js'
+import { applyHermesProxyEndpointPreset, buildHermesAgentProviderConfig, buildOpenClawProviderConfig } from '../lib/onboard.js'
 import { normalizeMissingScoreId } from '../lib/score-fetcher.js'
 import { resolveAutostartExecPath, resolveAutostartNodePath } from '../lib/autostart.js'
-import { exportConfigToken, getApiKey, getApiKeyPool, getMaxTurns, getPinningMode, getProviderBaseUrl, getProviderCatalogVisible, getProviderModelId, getProviderPingIntervalMs, hasMultipleKeys, importConfigToken, isProviderEnabled, normalizeConfigShape, isOpenAICompatibleInstanceKey, getBaseProviderKey, getOpenAICompatibleInstanceId, buildOpenAICompatibleInstanceKey, buildHermesProxyEndpointPreset, listOpenAICompatibleEndpoints, upsertOpenAICompatibleEndpoint, removeOpenAICompatibleEndpoint } from '../lib/config.js'
+import { exportConfigToken, getApiKey, getApiKeyPool, getMaxTurns, getPinningMode, getProviderBaseUrl, getProviderCatalogVisible, getProviderModelId, getProviderPingIntervalMs, hasMultipleKeys, importConfigToken, isProviderEnabled, normalizeConfigShape, saveConfig, writeConfigFiles, isOpenAICompatibleInstanceKey, getBaseProviderKey, getOpenAICompatibleInstanceId, buildOpenAICompatibleInstanceKey, buildHermesProxyEndpointPreset, listOpenAICompatibleEndpoints, upsertOpenAICompatibleEndpoint, removeOpenAICompatibleEndpoint } from '../lib/config.js'
 import { buildProviderCatalog, getFrontierFamilies, getFrontierFamilyMeta, getProviderMeta, getProviderSetupMeta, getQuickstartProviderChoices, getRecommendedProviderKey, parseQuickstartProviderChoice } from '../lib/providerMeta.js'
 import { applyPersistedTelemetry, getTelemetryRowKey, normalizeTelemetryPayload, serializeTelemetryMap, snapshotTelemetryRow } from '../lib/telemetry.js'
 import { buildNpmInstallInvocation, buildWindowsPostUpdateRestartCommand, getForcedUpdateVersion, getLocalUpdateTarballPath, getLocalUpdateVersion, isRunningFromSource, shouldStopAutostartBeforeUpdate } from '../lib/update.js'
@@ -193,6 +193,24 @@ describe('config helpers', () => {
     const plainBase64 = Buffer.from(json, 'utf8').toString('base64')
     const imported = importConfigToken(plainBase64)
     assert.equal(imported.apiKeys.kilocode, 'abc')
+  })
+
+  it('writes canonical and legacy config files with restrictive permissions', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'modelfoundry-config-'))
+    const primary = join(dir, 'config.json')
+    const legacy = join(dir, 'legacy.json')
+
+    try {
+      const written = writeConfigFiles({ apiKeys: { openrouter: '  sk-test  ' }, providers: {} }, primary, legacy)
+      assert.equal(written.primaryPath, primary)
+      assert.equal(written.legacyPath, legacy)
+      assert.equal(JSON.parse(readFileSync(primary, 'utf8')).apiKeys.openrouter, 'sk-test')
+      assert.equal(JSON.parse(readFileSync(legacy, 'utf8')).apiKeys.openrouter, 'sk-test')
+      assert.equal((written.primaryMode & 0o777), 0o600)
+      assert.equal((written.legacyMode & 0o777), 0o600)
+    } finally {
+      removePathBestEffort(dir, { recursive: true })
+    }
   })
 })
 
@@ -2013,13 +2031,17 @@ describe('autostart', () => {
 })
 
 describe('onboard integrations', () => {
-  it('builds OpenClaw provider config with required models array', () => {
-    const provider = buildOpenClawProviderConfig(7352)
+  it('builds Hermes Agent provider config with required models array', () => {
+    const provider = buildHermesAgentProviderConfig(7352)
 
     assert.equal(provider.baseUrl, 'http://127.0.0.1:7352/v1')
     assert.equal(provider.api, 'openai-completions')
     assert.equal(provider.apiKey, 'no-key')
     assert.deepEqual(provider.models, [{ id: 'auto-fastest', name: 'Auto Fastest' }])
+  })
+
+  it('keeps the legacy OpenClaw helper as a compatibility alias only', () => {
+    assert.deepEqual(buildOpenClawProviderConfig(7352), buildHermesAgentProviderConfig(7352))
   })
 
   it('applies Hermes Proxy preset to onboarding config without requiring a real API key', () => {
@@ -2035,6 +2057,28 @@ describe('onboard integrations', () => {
       assert.equal(config.providers[instanceKey].enabled, true)
       assert.equal('discoverModels' in config.providers[instanceKey], false)
     })
+  })
+})
+
+describe('app shell copy and theme', () => {
+  it('uses Hermes setup copy instead of OpenClaw in the dashboard setup view', () => {
+    const html = readFileSync(join(ROOT, 'index.html'), 'utf8')
+    const setupView = html.slice(html.indexOf('<div id="setup-view"'), html.indexOf('<div id="drawer"'))
+
+    assert.match(setupView, /Hermes Agent/)
+    assert.match(setupView, /Hermes Proxy/)
+    assert.doesNotMatch(setupView, /OpenClaw|openclaw/)
+  })
+
+  it('defaults the app stylesheet to dark mode tokens', () => {
+    const css = readFileSync(join(ROOT, 'src', 'styles.css'), 'utf8')
+    const rootBlock = css.slice(css.indexOf(':root {'), css.indexOf('.pill-estimate'))
+
+    assert.match(rootBlock, /color-scheme:\s*dark/)
+    assert.match(rootBlock, /--bg:\s*#0/)
+    assert.match(rootBlock, /--card:\s*#0/)
+    assert.match(rootBlock, /--surface/)
+    assert.match(rootBlock, /--surface-muted/)
   })
 })
 

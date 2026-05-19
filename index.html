@@ -556,56 +556,55 @@
 
     <div id="setup-view" style="display: none;">
       <h2 style="margin-top: 0; font-size: 1.25rem;">Setup Instructions</h2>
-      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.875rem;">Configure OpenClaw and OpenCode
-        (Opencode) to use this optional router/dashboard layer.</p>
-      <div style="margin-bottom: 1.5rem; padding: 14px 16px; border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 12px;">
-        <div style="font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: #1d4ed8; margin-bottom: 6px;">Recommended First Run</div>
-        <div style="font-size: 0.9rem; font-weight: 700; margin-bottom: 4px;">Start with OpenRouter, then add other providers later.</div>
-        <div style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.5;">ModelFoundry works best when you get one strong provider lane working first, keep your main OpenClaw/OpenCode primary untouched, and treat the router as an optional lane.</div>
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.875rem;">Configure Hermes Agent, Hermes Proxy, and OpenCode to use this optional router/dashboard layer.</p>
+      <div class="setup-callout">
+        <div class="setup-callout-eyebrow">Recommended First Run</div>
+        <div class="setup-callout-title">Start with Hermes Proxy or OpenRouter, then add direct frontier providers later.</div>
+        <div class="setup-callout-copy">ModelFoundry works best when you get one strong provider lane working first, keep your primary Hermes/OpenCode stack intact, and treat the router as an optional OpenAI-compatible lane.</div>
       </div>
 
       <div class="setup-grid">
-        <div class="setup-card">
-          <h3>OpenClaw</h3>
+        <div class="setup-card setup-card-wide">
+          <h3>Hermes Agent</h3>
 
           <div class="setup-method">
             <p class="setup-method-title">Automatic</p>
             <ol class="setup-steps">
-              <li>Run <code>model-foundry onboard</code> (or <code>modelrelay onboard</code> for legacy compatibility).</li>
-              <li>When asked <code>Auto-configure OpenClaw now? [Y/n]</code>, answer <code>Y</code>.</li>
-              <li>Start the router with <code>model-foundry</code> (or <code>modelrelay</code> for legacy compatibility).</li>
+              <li>Run <code>model-foundry onboard</code> (or <code>modelrelay onboard</code> for legacy binary compatibility).</li>
+              <li>Accept the <code>Configure local Hermes Proxy endpoint?</code> prompt if you want ModelFoundry to route through Hermes-managed OAuth subscriptions.</li>
+              <li>Start the router with <code>model-foundry</code>, then configure Hermes Agent with the commands below.</li>
             </ol>
           </div>
 
           <div class="setup-method">
             <p class="setup-method-title">Manual</p>
-            <div style="font-size:0.83rem; color:var(--text-muted);">Merge this into
-              <code>~/.openclaw/openclaw.json</code>:
-            </div>
-            <pre class="setup-snippet">{
-  "models": {
-    "providers": {
-      "modelfoundry": {
-        "baseUrl": "http://127.0.0.1:7352/v1",
-        "api": "openai-completions",
-        "apiKey": "no-key",
-        "models": [
-          { "id": "auto-fastest", "name": "Auto Fastest" }
-        ]
-      }
-    }
-  },
-  "agents": {
-    "defaults": {
-      "model": {
-        "primary": "openai/gpt-5.4"
-      },
-      "models": {
-        "modelfoundry/auto-fastest": {}
-      }
-    }
-  }
-}</pre>
+            <div class="setup-copy">Use Hermes' own config CLI so profile files stay in the canonical Hermes format. Reference: <code>https://hermes-agent.nousresearch.com/docs/user-guide/configuration</code>.</div>
+            <pre class="setup-snippet"># Point Hermes Agent at ModelFoundry's OpenAI-compatible router
+hermes config set model.provider custom
+hermes config set model.base_url http://127.0.0.1:7352/v1
+hermes config set model.api_key no-key
+hermes config set model.default auto-fastest
+hermes chat -q "Say hi through ModelFoundry" -Q</pre>
+          </div>
+        </div>
+
+        <div class="setup-card">
+          <h3>Hermes Proxy upstream</h3>
+
+          <div class="setup-method">
+            <p class="setup-method-title">OAuth passthrough</p>
+            <ol class="setup-steps">
+              <li>Start Hermes Proxy separately: <code>hermes proxy start --provider auto --host 127.0.0.1 --port 8648</code>.</li>
+              <li>In Settings, click <code>Add Hermes Proxy</code> under OpenAI-Compatible endpoints.</li>
+              <li>Leave the model blank for discovery, unless you intentionally want to pin one model from <code>/v1/models</code>.</li>
+            </ol>
+          </div>
+
+          <div class="setup-method">
+            <p class="setup-method-title">Docker env</p>
+            <pre class="setup-snippet">MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://host.docker.internal:8648/v1
+MODELFOUNDRY_HERMES_PROXY_API_KEY=unused
+MODELFOUNDRY_HERMES_PROXY_MODEL=</pre>
           </div>
         </div>
 

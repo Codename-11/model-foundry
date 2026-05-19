@@ -8,7 +8,7 @@ ModelFoundry has two main jobs:
 ## High-level flow
 
 ```text
-Client (OpenClaw / OpenCode / scripts)
+Client (Hermes Agent / OpenCode / scripts)
   -> ModelFoundry local endpoint (/v1/chat/completions)
   -> provider/model selection
   -> upstream provider request
@@ -66,7 +66,7 @@ Responsibilities:
 ### Config and setup
 
 - `lib/config.js` handles canonical config storage and transfer tokens
-- `lib/onboard.js` builds guided integration setup for OpenClaw and OpenCode
+- `lib/onboard.js` builds guided integration setup for Hermes Agent, Hermes Proxy, and OpenCode
 - `lib/autostart.js` manages login-time startup behavior across OSes
 - `lib/update.js` handles npm update flows and service restart behavior
 - `lib/qwencodeAuth.js` handles Qwen OAuth device flow support

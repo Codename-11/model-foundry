@@ -11,7 +11,7 @@ The config stores provider API keys, provider enable/disable state, bans, update
 
 ### Integration targets
 
-- OpenClaw: `~/.openclaw/openclaw.json`
+- Hermes Agent: configure with `hermes config set ...` (or `hermes --profile <name> config set ...`)
 - OpenCode: `~/.config/opencode/opencode.json`
 
 ## API key environment variables

@@ -1,7 +1,7 @@
 {
   "name": "model-foundry",
   "version": "0.1.0",
-  "description": "OpenAI-compatible optional model router, dashboard, and comparison layer for OpenClaw and OpenCode.",
+  "description": "OpenAI-compatible optional model gateway, router, dashboard, and comparison layer for Hermes Agent and OpenCode.",
   "keywords": [
     "nvidia",
     "nim",

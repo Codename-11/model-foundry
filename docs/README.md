@@ -9,8 +9,9 @@ This repo keeps the root README short and pushes the deeper material here.
 
 ## Integrations
 
-- [OpenClaw](integrations/openclaw.md)
+- [Hermes Agent](integrations/hermes-agent.md)
 - [OpenCode](integrations/opencode.md)
+- [Hermes Proxy](integrations/hermes-proxy.md)
 - [Frontier provider catalog](integrations/frontier.md)
 
 ## Reference
@@ -22,3 +23,4 @@ This repo keeps the root README short and pushes the deeper material here.
 ## Project
 
 - [Roadmap](project/roadmap.md)
+- [OAuth subscription gateway references](research/oauth-subscription-gateways.md)
