@@ -488,6 +488,24 @@ describe('provider api key resolution', () => {
     }
   })
 
+  it('supports Hermes Proxy-specific env vars for OAuth passthrough instances', () => {
+    withEnv({
+      MODELFOUNDRY_HERMES_PROXY_API_KEY: 'proxy-placeholder',
+      MODELFOUNDRY_HERMES_PROXY_BASE_URL: 'http://host.docker.internal:8648/v1',
+      MODELFOUNDRY_HERMES_PROXY_MODEL: 'grok-4.3',
+    }, () => {
+      const instanceKey = 'openai-compatible:hermes-proxy'
+      const config = {
+        apiKeys: { [instanceKey]: 'file-placeholder' },
+        providers: { [instanceKey]: { baseUrl: 'http://127.0.0.1:8648/v1', modelId: '' } },
+      }
+
+      assert.equal(getApiKey(config, instanceKey), 'proxy-placeholder')
+      assert.equal(getProviderBaseUrl(config, instanceKey), 'http://host.docker.internal:8648/v1')
+      assert.equal(getProviderModelId(config, instanceKey), 'grok-4.3')
+    })
+  })
+
   it('supports Ollama provider env vars for key, base URL, and model', () => {
     const originalKey = process.env.OLLAMA_API_KEY
     const originalBaseUrl = process.env.OLLAMA_BASE_URL
@@ -857,9 +875,10 @@ describe('provider api key resolution', () => {
     }
   })
 
-  it('treats OpenCode and KiloCode auth as optional bearer auth providers, and local Ollama as optional', () => {
+  it('treats OpenCode, KiloCode, and Hermes Proxy as optional bearer auth providers, and local Ollama as optional', () => {
     assert.equal(isProviderAuthOptional({}, 'opencode'), true)
     assert.equal(isProviderAuthOptional({}, 'kilocode'), true)
+    assert.equal(isProviderAuthOptional({}, 'openai-compatible:hermes-proxy'), true)
     assert.equal(isProviderAuthOptional({}, 'ollama'), false)
     assert.equal(isProviderAuthOptional({ providers: { ollama: { baseUrl: 'http://127.0.0.1:11434' } } }, 'ollama'), true)
     assert.equal(isProviderAuthOptional({ providers: { ollama: { baseUrl: 'http://localhost:11434' } } }, 'ollama'), true)
@@ -867,12 +886,14 @@ describe('provider api key resolution', () => {
 
     assert.equal(isProviderBearerAuthEnabled({}, 'opencode'), true)
     assert.equal(isProviderBearerAuthEnabled({}, 'kilocode'), true)
+    assert.equal(isProviderBearerAuthEnabled({}, 'openai-compatible:hermes-proxy'), true)
     assert.equal(isProviderBearerAuthEnabled({}, 'ollama'), true)
     assert.equal(isProviderBearerAuthEnabled({ providers: { opencode: { useBearerAuth: false } } }, 'opencode'), false)
     assert.equal(isProviderBearerAuthEnabled({ providers: { kilocode: { useBearerAuth: false } } }, 'kilocode'), false)
     assert.equal(isProviderBearerAuthEnabled({ providers: { ollama: { useBearerAuth: false } } }, 'ollama'), true)
 
     assert.equal(providerWantsBearerAuth({}, 'opencode'), true)
+    assert.equal(providerWantsBearerAuth({}, 'openai-compatible:hermes-proxy'), true)
     assert.equal(providerWantsBearerAuth({ providers: { opencode: { useBearerAuth: false } } }, 'opencode'), false)
     assert.equal(providerWantsBearerAuth({ providers: { kilocode: { useBearerAuth: false } } }, 'kilocode'), false)
     assert.equal(providerWantsBearerAuth({ providers: { ollama: { useBearerAuth: false } } }, 'ollama'), true)
@@ -2002,7 +2023,7 @@ describe('onboard integrations', () => {
   })
 
   it('applies Hermes Proxy preset to onboarding config without requiring a real API key', () => {
-    withEnv({ MODELFOUNDRY_HERMES_PROXY_BASE_URL: null }, () => {
+    withEnv({ MODELFOUNDRY_HERMES_PROXY_BASE_URL: null, MODELFOUNDRY_HERMES_PROXY_MODEL: null, MODELFOUNDRY_HERMES_PROXY_API_KEY: null }, () => {
       const config = { apiKeys: {}, providers: {} }
       const instanceKey = applyHermesProxyEndpointPreset(config)
 
@@ -2010,7 +2031,7 @@ describe('onboard integrations', () => {
       assert.equal(config.apiKeys[instanceKey], 'unused')
       assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
       assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8648/v1')
-      assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
+      assert.equal(config.providers[instanceKey].modelId, '')
       assert.equal(config.providers[instanceKey].enabled, true)
       assert.equal('discoverModels' in config.providers[instanceKey], false)
     })
@@ -2053,6 +2074,19 @@ describe('provider metadata', () => {
     assert.equal(gemini.defaultModelId, 'gemini-2.5-pro')
     assert.equal(openai.authLabel, 'API key required')
     assert.equal(gemini.costLabel, 'Frontier paid')
+  })
+
+  it('exposes Hermes Proxy as an advanced OAuth passthrough lane', () => {
+    const meta = getProviderMeta('openai-compatible:hermes-proxy')
+    const setup = getProviderSetupMeta('openai-compatible:hermes-proxy')
+
+    assert.equal(meta.category, 'advanced')
+    assert.equal(meta.recommendation, 'Hermes OAuth passthrough')
+    assert.match(meta.summary, /Hermes-managed OAuth/)
+    assert.equal(setup.defaultBaseUrl, 'http://127.0.0.1:8648/v1')
+    assert.equal(setup.defaultModelId, '')
+    assert.equal(setup.authLabel, 'Hermes OAuth passthrough')
+    assert.equal(setup.costLabel, 'Uses Hermes auth')
   })
 
   it('builds a provider catalog with a frontier section', () => {
@@ -2655,14 +2689,14 @@ describe('OpenAI-compatible multi-instance support', () => {
   })
 
   it('builds a Hermes Proxy endpoint preset with generic OpenAI-compatible defaults', () => {
-    withEnv({ MODELFOUNDRY_HERMES_PROXY_BASE_URL: null }, () => {
+    withEnv({ MODELFOUNDRY_HERMES_PROXY_BASE_URL: null, MODELFOUNDRY_HERMES_PROXY_MODEL: null, MODELFOUNDRY_HERMES_PROXY_API_KEY: null }, () => {
       const preset = buildHermesProxyEndpointPreset()
 
       assert.deepEqual(preset, {
         id: 'hermes-proxy',
         name: 'Hermes Proxy',
         baseUrl: 'http://127.0.0.1:8648/v1',
-        modelId: 'gpt-5.5',
+        modelId: '',
         apiKey: 'unused',
         enabled: true,
         discoverModels: true,
@@ -2693,7 +2727,7 @@ describe('OpenAI-compatible multi-instance support', () => {
   })
 
   it('upserts the Hermes Proxy preset as a stable OpenAI-compatible endpoint', () => {
-    withEnv({ MODELFOUNDRY_HERMES_PROXY_BASE_URL: null }, () => {
+    withEnv({ MODELFOUNDRY_HERMES_PROXY_BASE_URL: null, MODELFOUNDRY_HERMES_PROXY_MODEL: null, MODELFOUNDRY_HERMES_PROXY_API_KEY: null }, () => {
       const config = { apiKeys: {}, providers: {} }
       const instanceKey = upsertOpenAICompatibleEndpoint(config, buildHermesProxyEndpointPreset())
 
@@ -2701,7 +2735,7 @@ describe('OpenAI-compatible multi-instance support', () => {
       assert.equal(config.apiKeys[instanceKey], 'unused')
       assert.equal(config.providers[instanceKey].name, 'Hermes Proxy')
       assert.equal(config.providers[instanceKey].baseUrl, 'http://127.0.0.1:8648/v1')
-      assert.equal(config.providers[instanceKey].modelId, 'gpt-5.5')
+      assert.equal(config.providers[instanceKey].modelId, '')
       assert.equal('discoverModels' in config.providers[instanceKey], false)
 
       const [endpoint] = listOpenAICompatibleEndpoints(config)
@@ -2709,7 +2743,7 @@ describe('OpenAI-compatible multi-instance support', () => {
       assert.equal(endpoint.id, 'hermes-proxy')
       assert.equal(endpoint.name, 'Hermes Proxy')
       assert.equal(endpoint.baseUrl, 'http://127.0.0.1:8648/v1')
-      assert.equal(endpoint.modelId, 'gpt-5.5')
+      assert.equal(endpoint.modelId, '')
       assert.equal(endpoint.apiKey, 'unused')
       assert.equal(endpoint.discoverModels, true)
     })
@@ -2779,6 +2813,16 @@ describe('OpenAI-compatible model discovery', () => {
     assert.equal(meta.modelId, 'some_unknown-model')
     assert.equal(meta.label, 'Some Unknown Model')
     assert.equal(meta.isEstimatedScore, true)
+  })
+
+  it('tags Hermes Proxy discoveries with OAuth passthrough metadata', () => {
+    const meta = toOpenAICompatibleDiscoveredModelMeta({ id: 'grok-4.20-reasoning' }, 'openai-compatible:hermes-proxy')
+    assert.ok(meta)
+    assert.equal(meta.providerKey, 'openai-compatible:hermes-proxy')
+    assert.equal(meta.source, 'hermes-proxy')
+    assert.equal(meta.authType, 'Hermes OAuth')
+    assert.equal(meta.upstreamProvider, 'xai-oauth')
+    assert.equal(meta.upstreamProviderInferred, true)
   })
 
   it('rejects records without a usable id', () => {

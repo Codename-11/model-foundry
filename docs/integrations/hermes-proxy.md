@@ -1,6 +1,6 @@
 # Hermes Proxy Integration
 
-ModelFoundry/model-foundry can use Hermes Proxy as a normal OpenAI-compatible upstream endpoint. There is no custom Hermes transport in this integration; the preset writes the same `openai-compatible:<id>` config shape that a user could create manually.
+ModelFoundry/model-foundry can use Hermes Proxy as a dedicated OAuth passthrough lane backed by the existing OpenAI-compatible adapter. There is no custom Hermes transport in this integration; the preset writes the same `openai-compatible:<id>` config shape that a user could create manually, then decorates `openai-compatible:hermes-proxy` with Hermes-specific metadata, auth semantics, and discovery defaults.
 
 ## What each layer does
 
@@ -17,19 +17,23 @@ Open **Settings → OpenAI-Compatible endpoints** and click **Add Hermes Proxy**
   "id": "hermes-proxy",
   "name": "Hermes Proxy",
   "baseUrl": "http://127.0.0.1:8648/v1",
-  "modelId": "gpt-5.5",
+  "modelId": "",
   "apiKey": "unused",
   "enabled": true,
   "discoverModels": true
 }
 ```
 
+`modelId` is intentionally blank by default. ModelFoundry should discover `/v1/models` and route to advertised Hermes Proxy models rather than assuming a hard-coded model exists.
+
 If your Hermes Proxy listens on a different local port, edit the endpoint's base URL after adding it.
 
-For Docker deployments, the preset also honors `MODELFOUNDRY_HERMES_PROXY_BASE_URL`. Docker-Server uses:
+For Docker deployments, the preset honors Hermes-specific env vars:
 
 ```env
 MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://host.docker.internal:8648/v1
+MODELFOUNDRY_HERMES_PROXY_API_KEY=unused
+MODELFOUNDRY_HERMES_PROXY_MODEL=
 ```
 
 That value points containers at the verified raw Hermes Proxy model endpoint. On Docker-Server, port `8645` responded to `/health` during validation but did not serve `/v1/models`.
@@ -76,5 +80,7 @@ The canonical local deployment path is `~/docker/modelfoundry/`, with ModelFound
 See [`docs/deployment/docker-server.md`](../deployment/docker-server.md) for the Compose template and smoke-test commands.
 
 ## Security note
+
+ModelFoundry treats `openai-compatible:hermes-proxy` as an optional-auth lane because Hermes owns the real upstream credential boundary. The OpenAI-compatible bearer value sent from ModelFoundry to the local proxy is only a local placeholder/passthrough token; Hermes attaches the real OAuth credential when it forwards requests.
 
 Do not expose Hermes Proxy on a LAN or public interface without real network and authentication controls. Local Hermes Proxy accepts placeholder bearer values at the OpenAI-compatible layer and attaches the real local upstream credential when it forwards requests.
