@@ -5,6 +5,9 @@
       --surface: #111827;
       --surface-muted: #172033;
       --surface-raised: #101827;
+      --surface-subtle: #0d1726;
+      --surface-control: #0f1a2b;
+      --surface-control-active: #16263a;
       --border: rgba(148, 163, 184, 0.22);
       --text: #e5edf7;
       --text-muted: #9aa8bc;
@@ -3561,4 +3564,223 @@
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
+    }
+
+    /* Dark-mode completion pass.
+       Earlier UI iterations used light cards as neutral surfaces. Keep semantic accent
+       colors, but make containers, controls, tables, and form fields use the dark token
+       stack so every tab reads as one coherent dark interface. */
+    .settings-subnav,
+    .catalog-overview,
+    .catalog-toolbar,
+    .catalog-profile-shell,
+    .catalog-filter-row,
+    .catalog-results,
+    .telemetry-help,
+    .filter-bar,
+    .compare-panel,
+    .settings-add-provider-card,
+    .settings-add-provider-card-empty,
+    .frontier-section,
+    .provider-group,
+    .settings-section-block,
+    .autoupdate-panel {
+      background: var(--surface-subtle);
+    }
+
+    .settings-overview-card,
+    .settings-overview-card-primary,
+    .settings-provider-accordion .provider-section,
+    .settings-provider-card,
+    .settings-add-provider-option,
+    .frontier-card,
+    .frontier-empty,
+    .catalog-overview-card,
+    .catalog-section-surface,
+    .catalog-card,
+    .catalog-card.is-compared,
+    .compare-card,
+    .chat-transcript,
+    .chat-msg,
+    .chat-model-note,
+    .catalog-empty-state,
+    .settings-provider-empty,
+    .settings-provider-note,
+    .drawer-provider-note,
+    .catalog-empty-chart,
+    .autoupdate-stat,
+    .provider-quickstart {
+      background: var(--surface-raised);
+      border-color: var(--border);
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+    }
+
+    .telemetry-help-card,
+    th,
+    .lane-section-row td,
+    .telemetry-empty-state,
+    .sparkline-svg,
+    .compare-metric,
+    .benchmark-chart-track {
+      background: var(--surface-control);
+      border-color: var(--border);
+    }
+
+    .telemetry-lane-switch,
+    .logs-mode-toggle,
+    .catalog-sort-select,
+    .search-input,
+    .search-input:focus,
+    .chat-model-select,
+    .chat-input,
+    .form-group input[type="password"],
+    .form-group input[type="password"]:focus,
+    .autoupdate-interval-label input,
+    .config-transfer-payload,
+    #config-transfer-payload,
+    textarea,
+    select,
+    input:not([type="checkbox"]):not([type="radio"]) {
+      background: var(--surface-control);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .telemetry-lane-btn.active,
+    .settings-subnav-tab:hover,
+    #settings-tab-overview:checked~.settings-shell-body .settings-subnav [for="settings-tab-overview"],
+    #settings-tab-providers:checked~.settings-shell-body .settings-subnav [for="settings-tab-providers"],
+    #settings-tab-open:checked~.settings-shell-body .settings-subnav [for="settings-tab-open"],
+    #settings-tab-frontier:checked~.settings-shell-body .settings-subnav [for="settings-tab-frontier"],
+    #settings-tab-routing:checked~.settings-shell-body .settings-subnav [for="settings-tab-routing"],
+    #settings-tab-advanced:checked~.settings-shell-body .settings-subnav [for="settings-tab-advanced"],
+    .logs-mode-btn.active {
+      background: var(--surface-control-active);
+      color: var(--text);
+      box-shadow: 0 0 0 1px rgba(38, 179, 252, 0.18), 0 10px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .catalog-filter-chip,
+    .catalog-filter-chip.clear,
+    .catalog-section-count,
+    .catalog-state-chip,
+    .catalog-tag,
+    .catalog-tag.subtle,
+    .settings-overview-link,
+    .settings-add-provider-chip,
+    .settings-add-provider-summary,
+    .settings-shell-badge,
+    .settings-provider-card-toggle,
+    .settings-provider-inline-btn,
+    .chat-model-chip,
+    .compare-remove-btn,
+    .lane-section-pill,
+    .provider-rec-pill,
+    .provider-count-pill,
+    .pin-badge,
+    .pill-estimate {
+      background: var(--surface-control-active);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .catalog-filter-chip:hover,
+    .catalog-filter-chip.active,
+    .catalog-profile-chip:hover,
+    .catalog-profile-chip.active,
+    .compare-row-btn.active,
+    .pin-row-btn:hover,
+    .compare-row-btn:hover,
+    .expand-btn:hover {
+      background: var(--accent-soft);
+      color: var(--accent-strong);
+      border-color: rgba(38, 179, 252, 0.34);
+    }
+
+    .lane-chip.general,
+    .frontier-state,
+    .catalog-state-chip.live,
+    .provider-rec-pill-primary {
+      background: rgba(38, 179, 252, 0.16);
+      color: var(--accent-strong);
+      border-color: rgba(38, 179, 252, 0.36);
+    }
+
+    .lane-chip.frontier,
+    .catalog-state-chip.missing,
+    .catalog-fit-block,
+    .chat-model-note.warn,
+    .provider-quickstart {
+      background: rgba(251, 191, 36, 0.12);
+      color: #fcd34d;
+      border-color: rgba(251, 191, 36, 0.32);
+    }
+
+    .frontier-state.configured,
+    .update-badge {
+      background: rgba(52, 211, 153, 0.14);
+      color: var(--success);
+      border-color: rgba(52, 211, 153, 0.36);
+    }
+
+    .settings-provider-note-error {
+      background: rgba(251, 113, 133, 0.12);
+      border-color: rgba(251, 113, 133, 0.34);
+      color: #fda4af;
+    }
+
+    .catalog-overview-label,
+    .catalog-source-count,
+    .catalog-sort-label,
+    .catalog-profile-title,
+    .settings-overview-kicker,
+    .frontier-family,
+    .settings-provider-guidance,
+    .catalog-fit-copy,
+    .catalog-fit-score,
+    .settings-provider-note-label,
+    .settings-provider-note-label-error,
+    .benchmark-breakdown-link {
+      color: var(--accent-strong);
+    }
+
+    .slider {
+      background-color: #253349;
+    }
+
+    .slider:before {
+      background-color: var(--text);
+    }
+
+    .progress-pill,
+    .progress-container,
+    .update-spinner {
+      background: var(--surface-control);
+      border-color: var(--border);
+    }
+
+    #update-overlay {
+      background: rgba(5, 11, 18, 0.88);
+      color: var(--text);
+    }
+
+    [style*="background:#fff"],
+    [style*="background: #fff"],
+    [style*="background:#ffffff"],
+    [style*="background: #ffffff"],
+    [style*="background:#f8fafc"],
+    [style*="background: #f8fafc"],
+    [style*="background:#eff6ff"],
+    [style*="background: #eff6ff"],
+    [style*="background:#ecfdf5"],
+    [style*="background: #ecfdf5"] {
+      background: var(--surface-control) !important;
+      color: var(--text) !important;
+      border-color: var(--border) !important;
+    }
+
+    #config-transfer-payload {
+      background: var(--surface-control) !important;
+      color: var(--text) !important;
+      border-color: var(--border) !important;
     }

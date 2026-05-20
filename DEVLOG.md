@@ -1,5 +1,25 @@
 # ModelFoundry — Dev Log
 
+## 2026-05-19 — Dark-mode completion audit
+
+### Summary
+
+Ran a Playwright dark-mode audit across the primary ModelFoundry app surfaces and closed remaining light-theme holdouts in shared UI surfaces, settings cards, catalog controls, chat controls, logs toggles, and inline-style fallbacks.
+
+### What changed
+
+- Added dark surface/control tokens to `src/styles.css`.
+- Added a final dark-mode completion pass covering catalog, telemetry, chat, logs, settings, frontier/open provider cards, and inline-generated controls.
+- Normalized lingering white inputs, textareas, pills, switches, table headers, help cards, and provider cards to the dark token stack.
+
+### Verification
+
+- Playwright audit over models, catalog, chat, logs, settings overview/providers/open/frontier/routing/advanced, and setup → 0 light-background candidates.
+- Visual spot-check screenshots for telemetry, chat, and settings/open views after the fix.
+- `npm test` → 218 passed.
+- `npm run build` → passed.
+- `git diff --check` → passed.
+
 ## 2026-05-19 — Use LAN Hermes Proxy URL and rediscover GPT-5.5
 
 ### Summary
