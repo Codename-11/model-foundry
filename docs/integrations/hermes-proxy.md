@@ -31,12 +31,12 @@ If your Hermes Proxy listens on a different local port, edit the endpoint's base
 For Docker deployments, the preset honors Hermes-specific env vars:
 
 ```env
-MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://host.docker.internal:8648/v1
+MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://172.16.24.250:8648/v1
 MODELFOUNDRY_HERMES_PROXY_API_KEY=unused
 MODELFOUNDRY_HERMES_PROXY_MODEL=
 ```
 
-That value points containers at the verified raw Hermes Proxy model endpoint. On Docker-Server, port `8645` responded to `/health` during validation but did not serve `/v1/models`.
+That value points containers at the verified raw Hermes Proxy model endpoint. On Docker-Server, prefer the explicit LAN URL so the container uses the same stable address as other LAN clients. Port `8645` responded to `/health` during validation but did not serve `/v1/models`.
 
 ## Add during onboarding
 
@@ -83,4 +83,4 @@ See [`docs/deployment/docker-server.md`](../deployment/docker-server.md) for the
 
 ModelFoundry treats `openai-compatible:hermes-proxy` as an optional-auth lane because Hermes owns the real upstream credential boundary. The OpenAI-compatible bearer value sent from ModelFoundry to the local proxy is only a local placeholder/passthrough token; Hermes attaches the real OAuth credential when it forwards requests.
 
-Do not expose Hermes Proxy on a LAN or public interface without real network and authentication controls. Local Hermes Proxy accepts placeholder bearer values at the OpenAI-compatible layer and attaches the real local upstream credential when it forwards requests.
+Do not expose Hermes Proxy beyond the trusted LAN without real network and authentication controls. Local Hermes Proxy accepts placeholder bearer values at the OpenAI-compatible layer and attaches the real local upstream credential when it forwards requests.

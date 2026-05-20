@@ -23,13 +23,13 @@ Use `deploy/.env.example` as the starting `.env`:
 ```env
 MODELFOUNDRY_PORT=7352
 MODELFOUNDRY_LAN_BIND=172.16.24.250
-MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://host.docker.internal:8648/v1
+MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://172.16.24.250:8648/v1
 MODELFOUNDRY_INBOUND_API_KEYS=replace-with-random-api-key
 MODELFOUNDRY_UID=1000
 MODELFOUNDRY_GID=1000
 ```
 
-The Hermes Proxy URL is the Docker-reachable raw model endpoint. On Docker-Server, `8648` is the verified OpenAI-compatible model endpoint; `8645` answered `/health` during validation but did not serve `/v1/models`.
+The Hermes Proxy URL is the Docker-reachable raw model endpoint. On Docker-Server, use the explicit LAN URL (`http://172.16.24.250:8648/v1`) rather than Docker's `host.docker.internal` alias so the configured upstream matches the stable LAN address used by other clients. Port `8648` is the verified OpenAI-compatible model endpoint; `8645` answered `/health` during validation but did not serve `/v1/models`.
 
 Set `MODELFOUNDRY_UID` and `MODELFOUNDRY_GID` to the host user that owns `~/docker/modelfoundry/config` so `.modelrelay.json` remains readable and manageable from the host.
 
@@ -70,16 +70,16 @@ Verified on Docker-Server on 2026-05-19 from `Codename-11/model-foundry` `master
 - LAN app/API base URL: `http://172.16.24.250:7352/v1`.
 - `/v1/*` requires the generated bearer key from `~/docker/modelfoundry/.env` (`MODELFOUNDRY_INBOUND_API_KEYS`).
 - Public `/v1/*` requests through `modelfoundry.axiom-labs.dev` are intentionally intercepted by Authelia and are not a machine-client endpoint.
-- Hermes upstream from the container: `http://host.docker.internal:8648/v1`
+- Hermes upstream from the container: `http://172.16.24.250:8648/v1`
 - Persistent config: `~/docker/modelfoundry/config/.modelrelay.json`
 
 Smoke results:
 
 - `/v1/models` without a bearer key returns `401`; with the configured key it returned 100 ModelFoundry catalog entries, including discovered Hermes models, from both localhost and LAN bindings.
-- Direct Hermes host and container-network checks returned 5 models: `grok-4.3`, `grok-4.20-reasoning`, `gpt-5.4`, `gpt-5.4-mini`, and `gpt-5.3-codex`.
+- Direct Hermes host and container-network checks returned Hermes Proxy's advertised models via `/v1/models`.
 - `grok-4.3` chat through ModelFoundry returned `ok`.
 - `grok-4.3` streaming through ModelFoundry emitted SSE chunks and final `[DONE]`.
-- The Hermes preset persisted across container restart with base URL `http://host.docker.internal:8648/v1` and API key `unused`.
+- The Hermes preset persisted across container restart with base URL `http://172.16.24.250:8648/v1` and API key `unused`.
 - A disposable Node client using `OPENAI_BASE_URL=http://127.0.0.1:7352/v1` completed a chat request through ModelFoundry.
 
 Hardening decision:
