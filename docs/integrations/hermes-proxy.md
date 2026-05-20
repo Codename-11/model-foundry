@@ -38,6 +38,18 @@ MODELFOUNDRY_HERMES_PROXY_MODEL=
 
 That value points containers at the verified raw Hermes Proxy model endpoint. On Docker-Server, prefer the explicit LAN URL so the container uses the same stable address as other LAN clients. Port `8645` responded to `/health` during validation but did not serve `/v1/models`.
 
+## Discovery and routing contract
+
+Treat Hermes Proxy as a discovery-driven upstream:
+
+- Keep `discoverModels: true` enabled for `openai-compatible:hermes-proxy`.
+- Leave the preset `modelId` blank unless you are intentionally pinning a fallback model for a client that cannot read `/v1/models`.
+- Refresh the endpoint after Hermes OAuth/login state changes. The routed Hermes Proxy catalog is expected to reflect currently authenticated proxy adapters such as `xai-oauth`, `openai-codex`, and `nous` when available.
+- Do not copy Hermes OAuth tokens into ModelFoundry. ModelFoundry sends a local placeholder bearer to the proxy; Hermes owns the real upstream credential refresh and attachment.
+- Chat-oriented routers should expect Hermes Proxy to advertise text/chat models only. Image/video/imagine-style IDs are filtered from the routed proxy catalog so downstream clients do not accidentally select media endpoints for chat completions.
+
+ModelFoundry should not maintain its own duplicate Hermes model list. If a known-valid Hermes model is missing from the refreshed catalog, inspect Hermes Proxy `/v1/models` first, then ModelFoundry discovery second.
+
 ## Add during onboarding
 
 `model-foundry onboard` asks whether to configure the local Hermes Proxy endpoint. If accepted, it writes `openai-compatible:hermes-proxy` with the preset above. It does not start Hermes Proxy for you.

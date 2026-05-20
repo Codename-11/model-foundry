@@ -29,12 +29,14 @@ Use upstream's existing `openai-compatible:<id>` multi-endpoint support and `/v1
   "id": "hermes-proxy",
   "name": "Hermes Proxy",
   "baseUrl": "http://127.0.0.1:8648/v1",
-  "modelId": "gpt-5.5",
+  "modelId": "",
   "apiKey": "unused",
   "enabled": true,
   "discoverModels": true
 }
 ```
+
+The blank `modelId` is deliberate: ModelFoundry should treat Hermes Proxy as a discovery-driven upstream and load models from `/v1/models` instead of shipping a duplicate Hermes model list. Pin a model only for a client that cannot discover models.
 
 ## Public/Private Boundary
 
@@ -72,14 +74,14 @@ Branch `revive/hermes-proxy` is based on upstream `ellipticmarketing/modelrelay/
 
 ## Risks and Known Gaps
 
-- The preset default is `http://127.0.0.1:8648/v1` for generic local use, and Docker deployments can set `MODELFOUNDRY_HERMES_PROXY_BASE_URL` to the container-reachable equivalent (`http://host.docker.internal:8648/v1` on Docker-Server). Port 8645 was a Hermes webhook/API service and returned 404 for `/v1/models`.
-- Local Hermes Proxy advertised `grok-4.3`, `grok-4.20-reasoning`, `gpt-5.4`, `gpt-5.4-mini`, and `gpt-5.3-codex`; it did not advertise `gpt-5.5` during validation. Chat smoke passed with `grok-4.3` and failed with `gpt-5.5`/`gpt-5.4-mini` at HTTP 403.
+- The preset default is `http://127.0.0.1:8648/v1` for generic local use, and Docker-Server deployments should set `MODELFOUNDRY_HERMES_PROXY_BASE_URL` to the stable LAN endpoint `http://172.16.24.250:8648/v1`. Port 8645 was a Hermes webhook/API service during validation and returned 404 for `/v1/models`.
+- Superseded validation note: the first revival smoke only advertised five routed proxy models and missed `gpt-5.5`; the Hermes Proxy routed adapter was later fixed to derive its catalog from authenticated adapters/provider catalogs and currently advertises 17 text/chat models including `gpt-5.5`.
 - The Vite dashboard migration from the stale fork remains intentionally deferred.
 - ModelFoundry/modelrelay remains a lightweight local router/dashboard. It does not provide the team/key/quota/cost governance expected from a production central gateway.
 
 ## Docker Deployment Decision
 
-Deploy this branch as a localhost-only Docker service for internal Axiom testing. The Docker image now builds from the fork checkout instead of installing upstream `modelrelay` from npm, and the Docker-Server deployment wires the Hermes Proxy preset to `http://host.docker.internal:8648/v1`.
+Deploy this branch as a Docker-managed internal Axiom testing service. The Docker image now builds from the fork checkout instead of installing upstream `modelrelay` from npm, and the Docker-Server deployment wires the Hermes Proxy preset to `http://172.16.24.250:8648/v1`.
 
 ## Docker-Server Deployment Result
 
@@ -87,12 +89,14 @@ Deployment completed on 2026-05-19 from the fork primary branch `master`.
 
 - Merge commit: `ac9ead3` (`Merge Hermes Proxy ModelFoundry revival`)
 - Deployment hardening commit: `00b0015` (`Run ModelFoundry container as the host user`)
+- LAN upstream/default update commit: `4e1d708` (`chore: use LAN Hermes proxy upstream`)
 - Stack path: `~/docker/modelfoundry/`
 - Local OpenAI-compatible endpoint: `http://127.0.0.1:7352/v1`
-- Hermes raw model upstream from Docker: `http://host.docker.internal:8648/v1`
+- LAN OpenAI-compatible endpoint: `http://172.16.24.250:7352/v1`
+- Hermes raw model upstream from Docker: `http://172.16.24.250:8648/v1`
 
-Smoke tests passed for `/v1/models`, direct host/container Hermes connectivity, non-streaming chat, streaming chat with `[DONE]`, config persistence across restart, and a disposable env-configured client. The first pass remains localhost-only. Inbound auth can wait, but alias policy and log redaction are the next practical hardening items before multiple internal apps rely on this endpoint.
+Smoke tests passed for `/v1/models`, direct host/container Hermes connectivity, non-streaming chat, streaming chat with `[DONE]`, config persistence across restart, and a disposable env-configured client. Inbound bearer auth is now enabled before LAN binding. Alias policy and log redaction remain the next practical hardening items before multiple internal apps rely on this endpoint.
 
 ## Next Action
 
-Keep ModelFoundry bound to `127.0.0.1:7352` until inbound auth, stable alias policy, and prompt/response log redaction are deliberately added.
+Keep public internet machine access closed. Internal/LAN use is acceptable with the generated `MODELFOUNDRY_INBOUND_API_KEYS` bearer key, but broad app adoption still needs stable alias policy and prompt/response log redaction.

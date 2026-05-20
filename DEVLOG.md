@@ -17,7 +17,7 @@ Switched the Docker-Server deployment away from Docker's `host.docker.internal` 
 ### Verification
 
 - `npm test` → 218 passed.
-- Restarted `hermes-proxy.service`; `/v1/models` on `http://172.16.24.250:8648` now advertises `gpt-5.5`.
+- Restarted `hermes-proxy.service`; `/v1/models` on `http://172.16.24.250:8648` now advertises 17 text/chat models from authenticated Hermes Proxy adapters, including `gpt-5.5`.
 - Recreated `modelfoundry`; container env now has `MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://172.16.24.250:8648/v1`.
-- Refreshed `openai-compatible:hermes-proxy` in deployed ModelFoundry; discovery returned 10 Hermes Proxy models including `gpt-5.5`.
+- Refreshed `openai-compatible:hermes-proxy` in deployed ModelFoundry; discovery returned the current Hermes Proxy catalog including `gpt-5.5`.
 - `/v1/models` through ModelFoundry includes `gpt-5.5`.

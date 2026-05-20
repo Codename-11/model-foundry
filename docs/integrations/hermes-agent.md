@@ -44,10 +44,12 @@ Then add it in ModelFoundry from **Settings → OpenAI-Compatible endpoints → 
 For Docker deployments:
 
 ```env
-MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://host.docker.internal:8648/v1
+MODELFOUNDRY_HERMES_PROXY_BASE_URL=http://172.16.24.250:8648/v1
 MODELFOUNDRY_HERMES_PROXY_API_KEY=unused
 MODELFOUNDRY_HERMES_PROXY_MODEL=
 ```
+
+On Docker-Server, use the stable LAN URL above rather than Docker's `host.docker.internal` alias so containers and LAN clients resolve the same upstream. Keep `MODELFOUNDRY_HERMES_PROXY_MODEL` blank unless a non-discovering client needs a pinned fallback; ModelFoundry should prefer Hermes Proxy `/v1/models` discovery.
 
 ## Why use ModelFoundry with Hermes?
 

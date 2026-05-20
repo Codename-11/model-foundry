@@ -76,7 +76,7 @@ Verified on Docker-Server on 2026-05-19 from `Codename-11/model-foundry` `master
 Smoke results:
 
 - `/v1/models` without a bearer key returns `401`; with the configured key it returned 100 ModelFoundry catalog entries, including discovered Hermes models, from both localhost and LAN bindings.
-- Direct Hermes host and container-network checks returned Hermes Proxy's advertised models via `/v1/models`.
+- Direct Hermes host and container-network checks returned Hermes Proxy's advertised text/chat models via `/v1/models`; after the routed proxy catalog fix, the live Docker-Server proxy advertised 17 models from authenticated adapters including `gpt-5.5`.
 - `grok-4.3` chat through ModelFoundry returned `ok`.
 - `grok-4.3` streaming through ModelFoundry emitted SSE chunks and final `[DONE]`.
 - The Hermes preset persisted across container restart with base URL `http://172.16.24.250:8648/v1` and API key `unused`.

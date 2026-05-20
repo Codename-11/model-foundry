@@ -4,7 +4,9 @@
 
 **Goal:** Promote ModelFoundry from a validated revival branch into a locally deployed, Docker-managed OpenAI-compatible router for Axiom testing, with Hermes Proxy configured as a downstream OpenAI-compatible provider and with enough local hardening to safely point internal apps/tools at one common endpoint.
 
-**Architecture:** ModelFoundry remains a lightweight local model router/dashboard, not a full LiteLLM-style governance gateway. Docker-Server runs ModelFoundry in Compose from the `Codename-11/model-foundry` fork, with persistent config mounted from `~/docker/modelfoundry/config` and Hermes Proxy registered as `openai-compatible:hermes-proxy` pointing at the verified raw model endpoint (`http://host.docker.internal:8648/v1` or the Docker-host equivalent). Apps under test call ModelFoundry at `http://<docker-server>:7352/v1` using OpenAI-compatible `base_url`, `api_key`, and `model` fields.
+**Status:** Historical execution plan. Current verified deployment details live in [`../deployment/docker-server.md`](../deployment/docker-server.md).
+
+**Architecture:** ModelFoundry remains a lightweight local model router/dashboard, not a full LiteLLM-style governance gateway. Docker-Server runs ModelFoundry in Compose from the `Codename-11/model-foundry` fork, with persistent config mounted from `~/docker/modelfoundry/config` and Hermes Proxy registered as `openai-compatible:hermes-proxy` pointing at the verified raw model endpoint (`http://172.16.24.250:8648/v1` on Docker-Server). Apps under test call ModelFoundry at `http://<docker-server>:7352/v1` using OpenAI-compatible `base_url`, `api_key`, and `model` fields.
 
 **Tech Stack:** Node.js/Express `modelrelay@1.17.1` fork, Docker Compose under `~/docker/`, Hermes Proxy raw model endpoint, OpenAI-compatible `/v1/models` and `/v1/chat/completions`, `npm test -- --test-reporter=spec`.
 
@@ -16,7 +18,7 @@
 - Remote fork: `Codename-11/model-foundry`
 - Current remote branch ref: `2692f3136c9b87dc6989545e2e961a12977adb6e`
 - Test status from revival branch: `183 passing`
-- Verified Hermes Proxy model endpoint on Docker-Server during revival: `http://127.0.0.1:8648/v1`
+- Verified Hermes Proxy model endpoint on Docker-Server during revival: `http://127.0.0.1:8648/v1`; current container/LAN upstream uses `http://172.16.24.250:8648/v1`
 - Known wrong endpoint during revival: `http://127.0.0.1:8645/v1` returned `/health` but not `/v1/models`, so it was Hermes webhook/API, not raw model proxy.
 
 ---
@@ -75,11 +77,11 @@ curl -fsS http://127.0.0.1:8648/v1/models | jq '.data | length, .[0:5]'
 **Commands:**
 
 ```bash
-docker run --rm --add-host=host.docker.internal:host-gateway curlimages/curl:latest \
-  -fsS http://host.docker.internal:8648/v1/models | head -c 500
+docker run --rm curlimages/curl:latest \
+  -fsS http://172.16.24.250:8648/v1/models | head -c 500
 ```
 
-**Expected:** Container can reach Hermes Proxy via `host.docker.internal:8648`. If not, use the Docker bridge gateway IP or run Hermes Proxy on a shared Docker network.
+**Expected:** Container can reach Hermes Proxy via the stable Docker-Server LAN endpoint. If not, verify host firewall/bind address before falling back to Docker bridge aliases or shared Docker networks.
 
 ---
 
