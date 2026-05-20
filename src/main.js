@@ -1597,7 +1597,7 @@ import {
         banner.style.display = 'block';
         banner.innerHTML = `
           <div class="catalog-empty-title">No provider lanes are configured yet</div>
-          <p>The dashboard is showing tracked models, but your current config has no API keys and no enabled providers. Add a lane in Settings or use Setup Instructions to bring your first provider online.</p>
+          <p>Live Telemetry now starts empty by design. Add a provider key or endpoint in Settings, then enable that lane to add explicit telemetry rows here.</p>
         `;
         return;
       }
@@ -1606,7 +1606,7 @@ import {
         banner.style.display = 'block';
         banner.innerHTML = `
           <div class="catalog-empty-title">Providers are configured but not enabled</div>
-          <p>ModelFoundry now defaults to explicit activation. Turn on one or more provider lanes in Settings to start live telemetry and routing.</p>
+          <p>Configured lanes stay out of routing until you enable them. Turn on one or more provider lanes in Settings to start live telemetry and routing.</p>
         `;
         return;
       }
@@ -2079,16 +2079,16 @@ import {
       if (lane === 'frontier') {
         return includeTracked
           ? `No frontier rows are tracked yet. Configure ${escapeHtml(FRONTIER_FAMILY_NAMES.join(', '))} in Settings to add them here.`
-          : 'No active frontier telemetry rows yet. Turn on a frontier lane in Settings, or enable "Show tracked / disabled" to inspect catalog inventory here.';
+          : 'No active frontier telemetry rows yet. Turn on a frontier lane in Settings, or enable "Show configured inventory" to inspect configured disabled rows here.';
       }
       if (lane === 'general') {
         return includeTracked
           ? 'No open/general rows are tracked yet. Add an open lane in Settings to seed this telemetry view.'
-          : 'No active open/general telemetry rows yet. Enable an open lane in Settings, or use "Show tracked / disabled" to inspect tracked inventory here.';
+          : 'No active open/general telemetry rows yet. Enable an open lane in Settings, or use "Show configured inventory" to inspect configured disabled rows here.';
       }
       return includeTracked
         ? 'No telemetry rows are tracked yet.'
-        : 'No active telemetry rows match the current lane and filter settings. You can enable "Show tracked / disabled" to inspect tracked inventory too.';
+        : 'No active telemetry rows match the current lane and filter settings. You can enable "Show configured inventory" to inspect configured disabled rows too.';
     }
 
     function renderSectionRow(label, detail) {

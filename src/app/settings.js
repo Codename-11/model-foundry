@@ -104,8 +104,8 @@ export function registerSettings(app) {
   function getProviderStatusMeta(provider) {
     const tokenOptional = provider.supportsOptionalBearerAuth === true;
     const statusIcon = provider.hasKey ? 'Configured' : (tokenOptional ? 'Optional' : 'Missing');
-    const statusColor = provider.hasKey ? '#065f46' : (tokenOptional ? '#1e40af' : '#92400e');
-    const statusBg = provider.hasKey ? '#ecfdf5' : (tokenOptional ? '#eff6ff' : '#fffbeb');
+    const statusColor = provider.hasKey ? 'var(--success)' : (tokenOptional ? 'var(--accent-strong)' : '#fcd34d');
+    const statusBg = provider.hasKey ? 'rgba(52, 211, 153, 0.14)' : (tokenOptional ? 'rgba(38, 179, 252, 0.16)' : 'rgba(251, 191, 36, 0.12)');
     const statusText = provider.hasKey
       ? (tokenOptional ? 'API key configured' : 'Key configured')
       : (tokenOptional ? 'API key optional' : 'No API key');
@@ -639,7 +639,7 @@ export function registerSettings(app) {
 
     const qwenAuthActionsHtml = provider.key === 'qwencode' ? `
       <div style="margin-top:10px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-        <button onclick="startQwenOAuthLogin()" style="border:1px solid var(--border); background:#fff; cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Login with Qwen Code</button>
+        <button onclick="startQwenOAuthLogin()" style="border:1px solid var(--border); background:var(--surface-control); color:var(--text); cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.78rem; font-weight:600;">Login with Qwen Code</button>
         <span id="qwencode-login-status" class="autoupdate-save-status"></span>
       </div>
     ` : '';
@@ -687,8 +687,8 @@ export function registerSettings(app) {
       </div>
       <div class="form-group" style="display:flex; gap:8px; align-items:center;">
         <input type="password" id="key-${provider.key}" name="key-${provider.key}" placeholder="${provider.hasKey ? 'Configured key is hidden' : (tokenOptional ? 'Enter API key (optional)...' : 'Enter API key...')}" autocomplete="new-password" style="flex:1;" onblur="updateProviderKey('${provider.key}')">
-        <button onclick="const input=document.getElementById('key-${provider.key}'); input.type=input.type==='password'?'text':'password'; this.textContent=input.type==='password'?'Show':'Hide';" style="border:1px solid var(--border); background:white; cursor:pointer; padding:8px 10px; border-radius:6px; font-size:0.75rem; white-space:nowrap;">Show</button>
-        ${provider.hasKey ? `<button onclick="deleteProviderKey('${provider.key}')" style="border:1px solid #fecaca; background:#fff1f2; color:#b91c1c; cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; white-space:nowrap;">Delete key</button>` : ''}
+        <button onclick="const input=document.getElementById('key-${provider.key}'); input.type=input.type==='password'?'text':'password'; this.textContent=input.type==='password'?'Show':'Hide';" style="border:1px solid var(--border); background:var(--surface-control); color:var(--text); cursor:pointer; padding:8px 10px; border-radius:6px; font-size:0.75rem; white-space:nowrap;">Show</button>
+        ${provider.hasKey ? `<button onclick="deleteProviderKey('${provider.key}')" style="border:1px solid rgba(251, 113, 133, 0.34); background:rgba(251, 113, 133, 0.12); color:#fda4af; cursor:pointer; padding:8px 12px; border-radius:6px; font-size:0.8rem; font-weight:600; white-space:nowrap;">Delete key</button>` : ''}
       </div>
       <div class="form-group" style="display:flex; gap:8px; align-items:center; margin-top:8px;">
         <span style="font-size:0.75rem; color:var(--text-muted); white-space:nowrap;">Ping interval (min):</span>

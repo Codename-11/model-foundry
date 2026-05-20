@@ -112,8 +112,8 @@
           </div>
           <div style="display:flex; align-items:center; gap:20px; flex-shrink: 0;">
             <button onclick="toggleFilterBar()"
-              style="display:flex; align-items:center; gap:6px; border:1px solid var(--border); background:white; cursor:pointer; font-size:0.8rem; color:var(--text); padding:6px 12px; border-radius:6px; transition:all 0.15s; font-weight:500;"
-              onmouseover="this.style.background='#f3f2f1'" onmouseout="this.style.background='white'">
+              style="display:flex; align-items:center; gap:6px; border:1px solid var(--border); background:var(--surface-control); cursor:pointer; font-size:0.8rem; color:var(--text); padding:6px 12px; border-radius:6px; transition:all 0.15s; font-weight:500;"
+              onmouseover="this.style.background='var(--surface-control-active)'" onmouseout="this.style.background='var(--surface-control)'">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
@@ -122,7 +122,7 @@
             </button>
             <div style="display:flex; align-items:center; gap:10px;">
               <span style="font-size:0.8rem; color:var(--text-muted); cursor:pointer; user-select:none;"
-                onclick="document.getElementById('tracked-rows-toggle').click()">Show tracked / disabled</span>
+                onclick="document.getElementById('tracked-rows-toggle').click()">Show configured inventory</span>
               <label class="switch">
                 <input type="checkbox" id="tracked-rows-toggle" onchange="setTelemetryTrackedVisibility(this.checked)">
                 <span class="slider"></span>
@@ -139,7 +139,7 @@
             </div>
             <button id="sort-reset-btn" onclick="resetSort()"
               style="display:none; border:none; background:none; cursor:pointer; font-size:0.8rem; color:var(--text-muted); padding:4px 8px; border-radius:6px; white-space:nowrap; transition:all 0.15s;"
-              onmouseover="this.style.background='#f3f2f1';this.style.color='var(--text)'"
+              onmouseover="this.style.background='var(--surface-control-active)';this.style.color='var(--text)'"
               onmouseout="this.style.background='none';this.style.color='var(--text-muted)'">&#x2715; Reset
               sort</button>
           </div>

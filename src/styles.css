@@ -46,6 +46,11 @@
       background-color: var(--bg);
       color: var(--text);
       padding-bottom: 100px;
+      overflow-x: hidden;
+    }
+
+    html {
+      overflow-x: hidden;
     }
 
     button,
@@ -1825,6 +1830,45 @@
         padding: 14px;
       }
 
+      .table-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+      }
+
+      .table-header > div {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .table-header .search-bar {
+        width: 100%;
+        max-width: none;
+      }
+
+      .table-header > div:last-child {
+        align-items: stretch !important;
+        gap: 12px !important;
+        flex-wrap: wrap;
+      }
+
+      .telemetry-lane-switch {
+        width: 100%;
+      }
+
+      .telemetry-lane-btn {
+        flex: 1 1 0;
+        justify-content: center;
+      }
+
+      #models-view .table-container {
+        overflow-x: auto;
+      }
+
+      #models-view table {
+        min-width: 720px;
+      }
+
       .settings-overview-grid {
         grid-template-columns: 1fr;
       }
@@ -3052,15 +3096,15 @@
     }
 
     .autoupdate-status-pill.on {
-      color: #065f46;
-      background: #ecfdf5;
-      border-color: #a7f3d0;
+      color: var(--success);
+      background: rgba(52, 211, 153, 0.14);
+      border-color: rgba(52, 211, 153, 0.36);
     }
 
     .autoupdate-status-pill.off {
-      color: #334155;
-      background: #f1f5f9;
-      border-color: #cbd5e1;
+      color: var(--text-muted);
+      background: var(--surface-control);
+      border-color: var(--border);
     }
 
     .autoupdate-controls {
@@ -3156,14 +3200,17 @@
     /* Drawer/Slide-over */
     #drawer {
       position: fixed;
-      right: -100%;
+      right: 0;
       top: 0;
       bottom: 0;
       width: 450px;
       background: var(--card);
       border-left: 1px solid var(--border);
       box-shadow: -20px 0 60px rgba(0, 0, 0, 0.1);
-      transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translateX(100%);
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      visibility: hidden;
+      pointer-events: none;
       z-index: 1000;
       padding: 40px;
       display: flex;
@@ -3177,7 +3224,9 @@
     }
 
     #drawer.open {
-      right: 0;
+      transform: translateX(0);
+      visibility: visible;
+      pointer-events: auto;
     }
 
     .drawer-overlay {
@@ -3729,6 +3778,28 @@
       color: #fda4af;
     }
 
+    .drawer-section,
+    .drawer-explainer-pill,
+    .benchmark-source-chip,
+    .benchmark-source-link,
+    .catalog-profile-chip,
+    .provider-quickstart-badge,
+    .provider-quickstart-card,
+    .logs-request-payload,
+    .logs-response-payload {
+      background: var(--surface-control) !important;
+      color: var(--text) !important;
+      border-color: var(--border) !important;
+    }
+
+    .drawer-explainer-pill,
+    .benchmark-source-chip,
+    .benchmark-source-link,
+    .catalog-profile-chip,
+    .provider-quickstart-badge {
+      background: var(--surface-control-active) !important;
+    }
+
     .catalog-overview-label,
     .catalog-source-count,
     .catalog-sort-label,
@@ -3772,8 +3843,23 @@
     [style*="background: #f8fafc"],
     [style*="background:#eff6ff"],
     [style*="background: #eff6ff"],
+    [style*="background:#fffbeb"],
+    [style*="background: #fffbeb"],
+    [style*="background:#fff7ed"],
+    [style*="background: #fff7ed"],
+    [style*="background:#fef2f2"],
+    [style*="background: #fef2f2"],
+    [style*="background:#fff1f2"],
+    [style*="background: #fff1f2"],
+    [style*="background:#faf9f8"],
+    [style*="background: #faf9f8"],
+    [style*="background:#eef2ff"],
+    [style*="background: #eef2ff"],
     [style*="background:#ecfdf5"],
-    [style*="background: #ecfdf5"] {
+    [style*="background: #ecfdf5"],
+    [style*="background: rgb(243, 242, 241)"],
+    [style*="background: rgb(250, 250, 249)"],
+    [style*="background: rgb(255, 255, 255)"] {
       background: var(--surface-control) !important;
       color: var(--text) !important;
       border-color: var(--border) !important;

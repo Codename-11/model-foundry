@@ -1,5 +1,29 @@
 # ModelFoundry — Dev Log
 
+## 2026-05-19 — Explicit telemetry onboarding and dark-mode sweep
+
+### Summary
+
+Completed a second UI pass focused on making ModelFoundry feel intentionally empty on first run instead of auto-populating live/default model telemetry. Blank installs now start with zero telemetry rows until a provider is explicitly configured or enabled; configured discovery providers such as Hermes Proxy still populate dynamically from their upstream catalogs.
+
+### What changed
+
+- Reworked server telemetry seeding so static model rows are only added for explicitly configured providers.
+- Preserved discovery-driven provider behavior for Hermes Proxy/OpenAI-compatible endpoints, OpenRouter, KiloCode, OpenCode, and Ollama.
+- Updated Live Telemetry copy from "tracked/disabled" toward "configured inventory" and explicit provider activation.
+- Extended dark-mode coverage for drawers, provider quickstart cards, request-log payload panels, catalog/profile chips, auto-update status pills, and inline-generated controls.
+- Fixed the slide-over drawer mobile leak by using transform-based off-canvas positioning with hidden inactive state.
+- Tightened mobile telemetry controls so search/filter/header controls remain inside the viewport while the dense table scrolls horizontally.
+
+### Verification
+
+- Blank-install smoke (`HOME=/tmp/modelfoundry-blank-home`, provider env cleared) → `/api/models` returned 0 rows.
+- Configured Hermes Proxy smoke on dev port 7353 → 17 discovered rows from `openai-compatible:hermes-proxy`.
+- Playwright dark-mode audit over telemetry, filters, tracked/configured rows, drawer, catalog, chat, logs, settings overview/providers/open/frontier/routing/advanced, setup, and mobile widths → 0 light-background candidates.
+- `pnpm test` → 218 passed.
+- `pnpm build` → passed.
+- `git diff --check` → passed.
+
 ## 2026-05-19 — Dark-mode completion audit
 
 ### Summary
